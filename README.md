@@ -1,2 +1,3 @@
-# MF_analysis
-Streamlit app for mututal fund analysis
+# Mutual Fund analysis app 
+
+This is a Streamlit app for muutal fund analysis
