@@ -24,26 +24,31 @@ def make_donut(type):
         return donut
         
     elif type=="scheme":
-        input_df = st.session_state["scheme_holdings"]
+        input_df = st.session_state["consol_holdings"]
+
+        input_df = input_df.loc[input_df['Scheme Name'] == st.session_state.scheme]
         # Calculate category counts
-        category_counts = input_df[['company_name','corpus_per']]
+        category_counts = input_df['sector_name'].value_counts().reset_index()
+        category_counts.columns = ['sector_name', 'count']
         # Create a donut chart
         donut = alt.Chart(category_counts).mark_arc(innerRadius=20).encode(
-            theta="corpus_per",
-            color="company_name:N",
+            theta="count",
+            color="sector_name:N",
         )
+        return donut
+        
         return donut
     
     elif type=="value":
-        input_df = st.session_state["portfolio"]
+        mf_portfolio = st.session_state["portfolio"]
         # Calculate current value in schemes
-        scheme_value = input_df['Units'] * input_df['NAV']
+        scheme_value = mf_portfolio['Units'] * mf_portfolio['NAV']
         # get total value
         total_value = scheme_value.sum()
-        input_df['Fraction Value'] = (scheme_value / total_value)*100
+        mf_portfolio['Fraction Value'] = (scheme_value / total_value)*100
 
         # Group by Scheme Category Name and calculate the sum of the Fraction Value
-        category_value = input_df.groupby('Scheme Category Name')['Fraction Value'].sum().reset_index()
+        category_value = mf_portfolio.groupby('Scheme Category Name')['Fraction Value'].sum().reset_index()
 
         # Create the donut chart
         donut = alt.Chart(category_value).mark_arc(innerRadius=20).encode(
@@ -51,6 +56,27 @@ def make_donut(type):
             theta='Fraction Value',
             tooltip=['Scheme Category Name', alt.Tooltip('Fraction Value:Q', title='Percentage Allocated', format='.2f')]
         )
+        
+        
+        return donut
+    
+    elif type=="sector_value":
+        consol_df = st.session_state["consol_holdings"]
+        # Calculate current value in schemes
+        all_scheme_value = consol_df['Units'] * consol_df['NAV']
+        # get total value
+        total_value = all_scheme_value.sum()
+        consol_df['Fraction Value'] = (all_scheme_value / total_value)*100
+
+        # Group by Scheme Category Name and calculate the sum of the Fraction Value
+        category_value = consol_df.groupby('sector_name')['Fraction Value'].sum().reset_index()
+
+        # Create the donut chart
+        donut = alt.Chart(category_value).mark_arc(innerRadius=20).encode(
+            color='sector_name:N',
+            theta='Fraction Value',
+            tooltip=['sector_name', alt.Tooltip('Fraction Value:Q', title='Percentage Allocated', format='.2f')]
+        ).mark_arc(innerRadius=20,outerRadius=80)
         
         
         return donut
@@ -79,10 +105,11 @@ def get_consolidated_holdings(schemei):
     Function to get consolidated holdings from all MF portfolio
     """
     
-    input_df = st.session_state["portfolio"]
+    mf_portfolio = st.session_state["portfolio"]
     
+    Units = mf_portfolio.loc[mf_portfolio['Scheme Name'] == schemei,'Units'].values[0]
     # get url
-    url = requests.get(input_df.loc[input_df['Scheme Name'] == schemei,'scheme_url'].values[0])
+    url = requests.get(mf_portfolio.loc[mf_portfolio['Scheme Name'] == schemei,'scheme_url'].values[0])
     # scrape url
     soup = BeautifulSoup(url.text, 'html.parser')
 
@@ -107,12 +134,13 @@ def get_consolidated_holdings(schemei):
     # get pandas
     hold_df = pd.DataFrame(holdings)
     hold_df['Scheme Name'] = schemei
-    hold_df['NAV'] = NAV
+    hold_df['NAV'] = float(NAV)
+    hold_df['Units'] = Units
         
     # hold_df = hold_df[['company_name','sector_name','corpus_per']]
 
     if not hold_df.empty:
-        hold_df = hold_df[['Scheme Name','company_name','sector_name','corpus_per']]
+        hold_df = hold_df[['Scheme Name','company_name','sector_name','corpus_per','NAV','Units']]
     
     return hold_df
 
@@ -169,7 +197,7 @@ def main():
                 
                 st.session_state["consol_holdings"] = consol_holdings
 
-
+    st.subheader("Consolidated Portfolio Holdings")
     # Display the contents of the uploaded file
     if st.session_state["portfolio"] is not None:
        
@@ -185,36 +213,44 @@ def main():
            
         with c2:
             
-            st.subheader("Value Distribution")
+            st.subheader("Value by scheme type")
 
             # display donut chart
             donut = make_donut('value')
             st.altair_chart(donut, use_container_width=True)
-            
         
-        # select scheme for analysis
-        scheme_name = st.selectbox("Select Scheme", st.session_state["portfolio"]["Scheme Name"].unique())
+        st.subheader("Porfolio Holdings by Sector")
+        # make donut chart
+        donut2 = make_donut('sector_value')
+        st.altair_chart(donut2, use_container_width=True)
+        
+        c1, c2 = st.columns(2)
 
-        # Check if a scheme is selected
-        if scheme_name is not None:
-            # update session state to selected
+        with c1:
 
-            st.session_state["scheme"] = scheme_name
+            st.subheader("Sector Holdings of Scheme")
+            # select scheme for analysis
+            scheme_name = st.selectbox("Select Scheme", st.session_state["portfolio"]["Scheme Name"].unique())
 
-            # get holdings for the scheme
-            st.subheader("Portfolio Holdings")
-            hold_df = get_scheme_holdings()
-            
-            # set session state
-            st.session_state["scheme_holdings"] = hold_df
-            
-            # make donut chart
-            donut2 = make_donut('scheme')
-            st.altair_chart(donut2, use_container_width=True)
+            # Check if a scheme is selected
+            if scheme_name is not None:
+                # update session state to selected
 
-        st.subheader("Consolidated Holdings")
-        st.dataframe(st.session_state["consol_holdings"])
+                st.session_state["scheme"] = scheme_name
 
+                # get holdings for the scheme
+                
+                hold_df = get_scheme_holdings()
+                
+                # set session state
+                st.session_state["scheme_holdings"] = hold_df
+                
+                # make donut chart
+                donut2 = make_donut('scheme')
+                st.altair_chart(donut2, use_container_width=True)
+
+
+          
 
 # Call the main function
 if __name__ == "__main__":
