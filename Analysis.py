@@ -131,11 +131,26 @@ def get_consolidated_holdings(schemei):
 
     NAV= re.search(r'₹([\d.]+)', value).group(1)
 
+
     # get pandas
     hold_df = pd.DataFrame(holdings)
     hold_df['Scheme Name'] = schemei
     hold_df['NAV'] = float(NAV)
     hold_df['Units'] = Units
+
+    # get other sectors not in the list
+    # Calculate the sum of contrib_per
+    total_contrib_per = hold_df['corpus_per'].sum()
+
+    print("total contrib per",total_contrib_per)
+    # Check if the sum is less than 1
+    if total_contrib_per < 1:
+        # Calculate the contribution percentage for 'Other'
+        other_contrib_per = 1 - total_contrib_per
+        
+        # Append a new row for 'Other'
+        hold_df = hold_df.append({'company_name': 'Other', 'contrib_per': other_contrib_per}, ignore_index=True)
+
         
     # hold_df = hold_df[['company_name','sector_name','corpus_per']]
 
