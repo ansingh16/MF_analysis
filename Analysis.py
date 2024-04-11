@@ -37,7 +37,6 @@ def make_donut(type):
         )
         return donut
         
-        return donut
     
     elif type=="value":
         mf_portfolio = st.session_state["portfolio"]
@@ -81,15 +80,27 @@ def make_donut(type):
         
         return donut
     
+def get_top_companies():
+    """
+    Function to get top companies
+    """
+    consol_df = st.session_state["consol_holdings"]
 
+    # get value invested in a company
+    consol_df['company_value']  = consol_df['Units'] * consol_df['NAV']*consol_df['corpus_per']
+    
+    # percent invested in a company with respect to total value of all companies
+    consol_df['percent_value'] = (consol_df['company_value']/consol_df['company_value'].sum())*100
+
+    # group by company_name and calculate the sum of the value and sort in descending order
+    top_companies = consol_df.groupby('company_name')['percent_value'].sum().reset_index().sort_values(by='percent_value', ascending=False)
+
+    return top_companies.head(10)
 
 # get holdings
 def get_scheme_holdings():
     """
-    This function sends a GET request to a specific URL, parses the HTML using BeautifulSoup, 
-    finds a script tag with a specific ID, extracts JSON data from the script tag content, and 
-    retrieves holdings and creates a pandas DataFrame. No parameters are passed and no return 
-    type is specified.
+    filter the holdings based on the selected scheme
     """
     scheme_df = st.session_state["consol_holdings"]
 
@@ -142,7 +153,6 @@ def get_consolidated_holdings(schemei):
     # Calculate the sum of contrib_per
     total_contrib_per = hold_df['corpus_per'].sum()
 
-    print("total contrib per",total_contrib_per)
     # Check if the sum is less than 1
     if total_contrib_per < 1:
         # Calculate the contribution percentage for 'Other'
@@ -171,8 +181,43 @@ def analyze_uploaded_file(uploaded_file):
 
 
 
+def add_entry(company, contribution):
+    # Check if dataframe exists in session state
+    if "excel_data" not in st.session_state:
+        st.session_state["excel_data"] = pd.DataFrame(columns=["Company", "Contribution"])
+
+    # Append the new entry to the dataframe
+    st.session_state["excel_data"] = st.session_state["excel_data"].append(
+        {"Company": company, "Contribution": contribution}, ignore_index=True
+    )
+
+    st.success("Entry added successfully.")
+
+
 def main():
     st.title("Analyze Mutual Fund Portfolio")
+
+    with st.sidebar:
+        # Set title
+        st.header("Add Mutual Fund Entry")
+        # Define inputs for each column
+        scheme_url = st.text_input("Groww url")
+        scheme_units = st.number_input("Units", min_value=0, step=1)
+    
+
+        # Add a button to add the entry
+        if st.button("Add Entry"):
+            # Validate inputs
+            if scheme_url.strip() == "":
+                st.error("Please enter a valid scheme name")
+                return
+            if scheme_units <= 0:
+                st.error("Contribution must be a positive number.")
+                return
+
+            # Add the entry to the dataframe
+            add_entry(scheme_url, scheme_units)
+
 
     st.sidebar.header("Upload CSV File")
 
@@ -187,6 +232,7 @@ def main():
         if st.sidebar.button("Analyze"):
             # Perform analysis on the uploaded file
             df = analyze_uploaded_file(uploaded_file)
+            
             if df is not None:
                 # Update session state with analyzed DataFrame
                 st.session_state["portfolio"] = df
@@ -197,24 +243,27 @@ def main():
                 all_schemes = df['Scheme Name'].unique()
 
                 
-                
-                with Pool.Pool(4) as p:
+                with st.spinner("Calculating Consolidated Holdings..."):
+                    
+                    with Pool.Pool(4) as p:
 
-                    # use map to run in parallel on all schemes
-                    consol_holdings_list = p.map(get_consolidated_holdings, all_schemes)
+                        # use map to run in parallel on all schemes
+                        consol_holdings_list = p.map(get_consolidated_holdings, all_schemes)
 
-                    # concat the list of dataframes into a single dataframe
-                    consol_holdings = pd.concat(consol_holdings_list, ignore_index=True)
+                        # concat the list of dataframes into a single dataframe
+                        consol_holdings = pd.concat(consol_holdings_list, ignore_index=True)
 
 
 
-                # consolidated holdings
-                
-                st.session_state["consol_holdings"] = consol_holdings
+                    # consolidated holdings
+                    
+                    st.session_state["consol_holdings"] = consol_holdings
 
-    st.subheader("Consolidated Portfolio Holdings")
+    
     # Display the contents of the uploaded file
     if st.session_state["portfolio"] is not None:
+
+        st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
        
         c1, c2 = st.columns(2)
 
@@ -234,11 +283,36 @@ def main():
             donut = make_donut('value')
             st.altair_chart(donut, use_container_width=True)
         
-        st.subheader("Porfolio Holdings by Sector")
-        # make donut chart
-        donut2 = make_donut('sector_value')
-        st.altair_chart(donut2, use_container_width=True)
+        c1, c2 = st.columns(spec=[0.52, 0.48])
+
+        with c1:
+            # make the heading at center 
+            st.subheader("Portfolio Holdings by Sector")
+            # make donut chart
+            donut2 = make_donut('sector_value')
+            st.altair_chart(donut2, use_container_width=True)
         
+        
+        with c2:
+
+            # from consolidated holdings get the top companies
+            # get top 10 companies by value
+            top_companies = get_top_companies()
+            # reset index
+            top_companies.reset_index(drop=True, inplace=True)
+
+            # set index to start from 1
+            top_companies.index = top_companies.index + 1
+
+            # rename the columns
+            top_companies.rename(columns={'index': 'Rank', 'company_name': 'Company', 'percent_value': '% of Total'}, inplace=True)
+
+            # create a table in steamlit
+            st.subheader("Top 10 Companies by Value")
+
+            # convert the dataframe to a table
+            st.dataframe(top_companies,hide_index=True)
+
         c1, c2 = st.columns(2)
 
         with c1:
