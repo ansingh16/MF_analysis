@@ -140,14 +140,21 @@ def get_consolidated_holdings(schemei):
     # Extract the text content from the <td> tag
     value = td_tag.get_text(strip=True)
 
+    # get NAV
     NAV= re.search(r'₹([\d.]+)', value).group(1)
 
+    # get category
+    category = json_data['props']['pageProps']['mf']['category']
+    # get sub-category
+    subcategory = json_data['props']['pageProps']['mf']['sub_category']
 
     # get pandas
     hold_df = pd.DataFrame(holdings)
     hold_df['Scheme Name'] = schemei
     hold_df['NAV'] = float(NAV)
     hold_df['Units'] = Units
+    hold_df['Scheme Category'] = category
+    hold_df['Scheme Sub-Category'] = subcategory
 
     # get other sectors not in the list
     # Calculate the sum of contrib_per
@@ -181,21 +188,60 @@ def analyze_uploaded_file(uploaded_file):
 
 
 
-def add_entry(company, contribution):
+def add_entry(url, units):
     # Check if dataframe exists in session state
-    if "excel_data" not in st.session_state:
-        st.session_state["excel_data"] = pd.DataFrame(columns=["Company", "Contribution"])
+    if "portfolio" not in st.session_state:
+        st.session_state["portfolio"] = pd.DataFrame(columns=["Scheme Name", "Scheme Category","NAV","Units"])
+
+    # read url
+    url_text =  requests.get(url)
+    soup = BeautifulSoup(url_text.text, 'html.parser')
+    # Get the scheme name
+    scheme_name = soup.find_all('title')[0].get_text().split('-')[0].strip()
+    
+    # Find the script tag with the specific ID
+    script_tag = soup.find('script', id='__NEXT_DATA__')
+
+    # Extract the JSON data from the script tag content
+    json_data = json.loads(script_tag.contents[0])
+
+    # get NAV
+
+    td_tag = soup.find_all('td',class_="fd12Cell contentPrimary bodyLargeHeavy")[0]
+
+    # Extract the text content from the <td> tag
+    value = td_tag.get_text(strip=True)
+    # get NAV
+    NAV= re.search(r'₹([\d.]+)', value).group(1)
+
+    # get category
+    category = json_data['props']['pageProps']['mf']['category']
+    # get subcategory
+    subcategory = json_data['props']['pageProps']['mf']['sub_category']
 
     # Append the new entry to the dataframe
-    st.session_state["excel_data"] = st.session_state["excel_data"].append(
-        {"Company": company, "Contribution": contribution}, ignore_index=True
+    st.session_state["portfolio"] = st.session_state["portfolio"].append(
+        {"Scheme Name": scheme_name, "Units": units, "NAV": float(NAV), "Scheme Category Name": category+" - "+subcategory,"scheme_url": url}, ignore_index=True
     )
+
 
     st.success("Entry added successfully.")
 
+def display_entries():
+    # Display the dataframe with checkboxes for selection
+    st.subheader("Schemes Added to Portfolio")
+    if "portfolio" in st.session_state:
+        for index, row in st.session_state["portfolio"].iterrows():
+            st.checkbox(f"{row['Scheme Name']} - {row['Units']}", key=index)
+
 
 def main():
-    st.title("Analyze Mutual Fund Portfolio")
+    st.title("Mutual Fund Portfolio Analysis")
+
+    # Initialize session state if not already initialized
+    if "portfolio" not in st.session_state:
+        st.session_state["portfolio"] = pd.DataFrame(columns=['Scheme Name', 'Units'])
+
 
     with st.sidebar:
         # Set title
@@ -203,65 +249,71 @@ def main():
         # Define inputs for each column
         scheme_url = st.text_input("Groww url")
         scheme_units = st.number_input("Units", min_value=0, step=1)
-    
+        st.session_state.input_data = pd.DataFrame(columns=["Company", "Contribution"])
 
         # Add a button to add the entry
         if st.button("Add Entry"):
+            
             # Validate inputs
             if scheme_url.strip() == "":
                 st.error("Please enter a valid scheme name")
                 return
+            else:
+                input_url = scheme_url
             if scheme_units <= 0:
                 st.error("Contribution must be a positive number.")
                 return
+            else:
+                input_units = scheme_units
 
-            # Add the entry to the dataframe
-            add_entry(scheme_url, scheme_units)
-
-
-    st.sidebar.header("Upload CSV File")
-
-    uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
-
-    # Initialize session state if not already initialized
-    if "portfolio" not in st.session_state:
-        st.session_state["portfolio"] = None
-
-    # Button to Analyze Uploaded File
-    if uploaded_file is not None:
-        if st.sidebar.button("Analyze"):
-            # Perform analysis on the uploaded file
-            df = analyze_uploaded_file(uploaded_file)
+            # if both inputs are valid, add the entry
+            if input_url and input_units:
+                add_entry(input_url, input_units)
             
-            if df is not None:
+        
+        
+        st.header('OR')
+
+        st.header("Upload CSV File")
+
+        uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
+
+    
+        # Button to Analyze Uploaded File
+        if uploaded_file is not None:
+            if st.sidebar.button("Analyze"):
+                # Perform analysis on the uploaded file
+                df = analyze_uploaded_file(uploaded_file)
                 # Update session state with analyzed DataFrame
                 st.session_state["portfolio"] = df
 
-                # get consolidated holdings
+        display_entries()
+
+    if st.session_state["portfolio"].shape[0]>0:
 
 
-                all_schemes = df['Scheme Name'].unique()
-
-                
-                with st.spinner("Calculating Consolidated Holdings..."):
+        # get consolidated holdings
+        all_schemes = st.session_state["portfolio"]['Scheme Name'].unique()
                     
-                    with Pool.Pool(4) as p:
+        with st.spinner("Calculating Consolidated Holdings..."):
+                            
+            with Pool.Pool(4) as p:
 
-                        # use map to run in parallel on all schemes
-                        consol_holdings_list = p.map(get_consolidated_holdings, all_schemes)
+                # use map to run in parallel on all schemes
+                consol_holdings_list = p.map(get_consolidated_holdings, all_schemes)
 
-                        # concat the list of dataframes into a single dataframe
-                        consol_holdings = pd.concat(consol_holdings_list, ignore_index=True)
+                # concat the list of dataframes into a single dataframe
+                consol_holdings = pd.concat(consol_holdings_list, ignore_index=True)
 
 
 
-                    # consolidated holdings
-                    
-                    st.session_state["consol_holdings"] = consol_holdings
+                # consolidated holdings
+                            
+                st.session_state["consol_holdings"] = consol_holdings
 
-    
-    # Display the contents of the uploaded file
-    if st.session_state["portfolio"] is not None:
+            
+    # # Display the contents of the uploaded file
+    # if st.session_state["portfolio"].shape[0] >0:
 
         st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
        
