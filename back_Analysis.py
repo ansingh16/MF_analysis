@@ -12,7 +12,7 @@ import re
 def make_donut(type):
 
     if type=="portfolio":
-        input_df = st.session_state["consol_holdings"]
+        input_df = st.session_state["portfolio"]
         # Calculate category counts
         category_counts = input_df['Scheme Category Name'].value_counts().reset_index()
         category_counts.columns = ['Scheme Category Name', 'count']
@@ -111,17 +111,18 @@ def get_scheme_holdings():
 
 
 @st.cache_data
-def get_consolidated_holdings(mf_url,mf_unit):
+def get_consolidated_holdings(schemei):
     """
     Function to get consolidated holdings from all MF portfolio
     """
- 
-    url = requests.get(mf_url)
+    
+    mf_portfolio = st.session_state["portfolio"]
+    
+    Units = mf_portfolio.loc[mf_portfolio['Scheme Name'] == schemei,'Units'].values[0]
+    # get url
+    url = requests.get(mf_portfolio.loc[mf_portfolio['Scheme Name'] == schemei,'scheme_url'].values[0])
     # scrape url
     soup = BeautifulSoup(url.text, 'html.parser')
-
-    # get scheme name
-    scheme_name = soup.find_all('title')[0].get_text().split('-')[0].strip()
 
     # Find the script tag with the specific ID
     script_tag = soup.find('script', id='__NEXT_DATA__')
@@ -149,9 +150,9 @@ def get_consolidated_holdings(mf_url,mf_unit):
 
     # get pandas
     hold_df = pd.DataFrame(holdings)
-    hold_df['Scheme Name'] = scheme_name
+    hold_df['Scheme Name'] = schemei
     hold_df['NAV'] = float(NAV)
-    hold_df['Units'] = mf_unit
+    hold_df['Units'] = Units
     hold_df['Scheme Category'] = category
     hold_df['Scheme Sub-Category'] = subcategory
 
@@ -187,8 +188,52 @@ def analyze_uploaded_file(uploaded_file):
 
 
 
+def add_entry(url, units):
+    # Check if dataframe exists in session state
+    if "portfolio" not in st.session_state:
+        st.session_state["portfolio"] = pd.DataFrame(columns=["Scheme Name", "Scheme Category","NAV","Units"])
 
-#     st.success("Entry added successfully.")
+    # read url
+    url_text =  requests.get(url)
+    soup = BeautifulSoup(url_text.text, 'html.parser')
+    # Get the scheme name
+    scheme_name = soup.find_all('title')[0].get_text().split('-')[0].strip()
+    
+    # Find the script tag with the specific ID
+    script_tag = soup.find('script', id='__NEXT_DATA__')
+
+    # Extract the JSON data from the script tag content
+    json_data = json.loads(script_tag.contents[0])
+
+    # get NAV
+
+    td_tag = soup.find_all('td',class_="fd12Cell contentPrimary bodyLargeHeavy")[0]
+
+    # Extract the text content from the <td> tag
+    value = td_tag.get_text(strip=True)
+    # get NAV
+    NAV= re.search(r'₹([\d.]+)', value).group(1)
+
+    # get category
+    category = json_data['props']['pageProps']['mf']['category']
+    # get subcategory
+    subcategory = json_data['props']['pageProps']['mf']['sub_category']
+
+    # Append the new entry to the dataframe
+    st.session_state["portfolio"] = st.session_state["portfolio"].append(
+        {"Scheme Name": scheme_name, "Units": units, "NAV": float(NAV), "Scheme Category Name": category+" - "+subcategory,"scheme_url": url}, ignore_index=True
+    )
+
+
+    st.success("Entry added successfully.")
+
+def display_entries():
+    # Display the dataframe with checkboxes for selection
+    st.subheader("Schemes Added to Portfolio")
+    if "portfolio" in st.session_state:
+        for index, row in st.session_state["portfolio"].iterrows():
+            st.checkbox(f"{row['Scheme Name']} - {row['Units']}", key=index,vakue=True)
+
 
 def main():
     st.title("Mutual Fund Portfolio Analysis")
@@ -228,116 +273,32 @@ def main():
     portfolio = [input_data for input_data in st.session_state.portfolio if input_data['Checkbox']]
     
 
+    st.dataframe(portfolio)
 
-    if "consol_holdings" not in st.session_state:
-        st.session_state["consol_holdings"] = None
-
-    if len(portfolio)>0:
-
-        portfolio = pd.DataFrame(portfolio)
+    # if st.session_state["portfolio"].shape[0]>0:
 
 
-        # get consolidated holdings
-        all_url = portfolio['Scheme URL'].unique()
-        all_units = portfolio['Units'].unique()
+    #     # get consolidated holdings
+    #     all_schemes = st.session_state["portfolio"]['Scheme Name'].unique()
                     
-        with st.spinner("Calculating Consolidated Holdings..."):
+    #     with st.spinner("Calculating Consolidated Holdings..."):
                             
-            with Pool.Pool(4) as p:
+    #         with Pool.Pool(4) as p:
 
-                # use starmap to run in parallel on all urls
-                consol_holdings_list = p.starmap(get_consolidated_holdings, zip(all_url,all_units))
-                
-                # concat the list of dataframes into a single dataframe
-                consol_holdings = pd.concat(consol_holdings_list, ignore_index=True)
+    #             # use map to run in parallel on all schemes
+    #             consol_holdings_list = p.map(get_consolidated_holdings, all_schemes)
+
+    #             # concat the list of dataframes into a single dataframe
+    #             consol_holdings = pd.concat(consol_holdings_list, ignore_index=True)
 
 
 
-                # consolidated holdings
+    #             # consolidated holdings
                             
-                st.session_state["consol_holdings"] = consol_holdings
+    #             st.session_state["consol_holdings"] = consol_holdings
 
 
-               
-    # # Display the contents of the uploaded file
-    # if st.session_state["portfolio"].shape[0] >0:
-
-        st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
-       
-        c1, c2 = st.columns(2)
-
-        with c1:
-            st.subheader("Scheme Type Distribution")
-
-            # display donut chart
-            donut = make_donut('portfolio')
-            st.altair_chart(donut, use_container_width=True)
-            
-           
-        with c2:
-            
-            st.subheader("Value by scheme type")
-
-            # display donut chart
-            donut = make_donut('value')
-            st.altair_chart(donut, use_container_width=True)
-        
-        c1, c2 = st.columns(spec=[0.52, 0.48])
-
-        with c1:
-            # make the heading at center 
-            st.subheader("Portfolio Holdings by Sector")
-            # make donut chart
-            donut2 = make_donut('sector_value')
-            st.altair_chart(donut2, use_container_width=True)
-        
-        
-    #     with c2:
-
-    #         # from consolidated holdings get the top companies
-    #         # get top 10 companies by value
-    #         top_companies = get_top_companies()
-    #         # reset index
-    #         top_companies.reset_index(drop=True, inplace=True)
-
-    #         # set index to start from 1
-    #         top_companies.index = top_companies.index + 1
-
-    #         # rename the columns
-    #         top_companies.rename(columns={'index': 'Rank', 'company_name': 'Company', 'percent_value': '% of Total'}, inplace=True)
-
-    #         # create a table in steamlit
-    #         st.subheader("Top 10 Companies by Value")
-
-    #         # convert the dataframe to a table
-    #         st.dataframe(top_companies,hide_index=True)
-
-    #     c1, c2 = st.columns(2)
-
-    #     with c1:
-
-    #         st.subheader("Sector Holdings of Scheme")
-    #         # select scheme for analysis
-    #         scheme_name = st.selectbox("Select Scheme", st.session_state["portfolio"]["Scheme Name"].unique())
-
-    #         # Check if a scheme is selected
-    #         if scheme_name is not None:
-    #             # update session state to selected
-
-    #             st.session_state["scheme"] = scheme_name
-
-    #             # get holdings for the scheme
-                
-    #             hold_df = get_scheme_holdings()
-                
-    #             # set session state
-    #             st.session_state["scheme_holdings"] = hold_df
-                
-    #             # make donut chart
-    #             donut2 = make_donut('scheme')
-    #             st.altair_chart(donut2, use_container_width=True)
-
-
+    
     # # Initialize session state if not already initialized
     # if "portfolio" not in st.session_state:
     #     st.session_state["portfolio"] = pd.DataFrame(columns=['Scheme Name', 'Units'])
