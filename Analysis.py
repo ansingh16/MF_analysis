@@ -10,6 +10,10 @@ import re
 
 # Donut chart
 def make_donut(type):
+    """
+    Generate a donut chart based on the input type. The function takes a type parameter and returns a donut chart based on the specified type. The valid types are "portfolio", "scheme", "value", and "sector_value". The function returns an Altair chart object.
+    """
+        
 
     if type=="portfolio":
         input_df = st.session_state["portfolio"]
@@ -181,6 +185,15 @@ def get_consolidated_holdings(schemei):
 # Function to load data
 @st.cache_data
 def analyze_uploaded_file(uploaded_file):
+    """
+    A function to analyze an uploaded file by reading it into a pandas DataFrame.
+    
+    Parameters:
+    uploaded_file (file): The uploaded file to be analyzed.
+    
+    Returns:
+    df (DataFrame): The pandas DataFrame containing the uploaded file data.
+    """
     if uploaded_file is not None:
         # Read the uploaded file into a pandas DataFrame
         df = pd.read_csv(uploaded_file)
@@ -189,6 +202,16 @@ def analyze_uploaded_file(uploaded_file):
 
 
 def add_entry(url, units):
+    """
+    Add an entry to the portfolio dataframe with information obtained from the given URL.
+    
+    Parameters:
+    - url: The URL from which the scheme information will be scraped
+    - units: The number of units to be added to the portfolio
+    
+    Returns:
+    None
+    """
     # Check if dataframe exists in session state
     if "portfolio" not in st.session_state:
         st.session_state["portfolio"] = pd.DataFrame(columns=["Scheme Name", "Scheme Category","NAV","Units"])
@@ -219,9 +242,11 @@ def add_entry(url, units):
     # get subcategory
     subcategory = json_data['props']['pageProps']['mf']['sub_category']
 
+    dum_df = pd.DataFrame(
+        {"Scheme Name": scheme_name, "Units": units, "NAV": float(NAV), "Scheme Category Name": category+" - "+subcategory,"scheme_url": url},index=[0])
+    
     # Append the new entry to the dataframe
-    st.session_state["portfolio"] = st.session_state["portfolio"].append(
-        {"Scheme Name": scheme_name, "Units": units, "NAV": float(NAV), "Scheme Category Name": category+" - "+subcategory,"scheme_url": url}, ignore_index=True
+    st.session_state["portfolio"] = pd.concat([st.session_state["portfolio"],dum_df], ignore_index=True
     )
 
 
@@ -235,63 +260,10 @@ def display_entries():
             st.checkbox(f"{row['Scheme Name']} - {row['Units']}", key=index)
 
 
-def main():
-    st.title("Mutual Fund Portfolio Analysis")
-
-    # Initialize session state if not already initialized
-    if "portfolio" not in st.session_state:
-        st.session_state["portfolio"] = pd.DataFrame(columns=['Scheme Name', 'Units'])
-
-
-    with st.sidebar:
-        # Set title
-        st.header("Add Mutual Fund Entry")
-        # Define inputs for each column
-        scheme_url = st.text_input("Groww url")
-        scheme_units = st.number_input("Units", min_value=0, step=1)
-        st.session_state.input_data = pd.DataFrame(columns=["Company", "Contribution"])
-
-        # Add a button to add the entry
-        if st.button("Add Entry"):
-            
-            # Validate inputs
-            if scheme_url.strip() == "":
-                st.error("Please enter a valid scheme name")
-                return
-            else:
-                input_url = scheme_url
-            if scheme_units <= 0:
-                st.error("Contribution must be a positive number.")
-                return
-            else:
-                input_units = scheme_units
-
-            # if both inputs are valid, add the entry
-            if input_url and input_units:
-                add_entry(input_url, input_units)
-            
-        
-        
-        st.header('OR')
-
-        st.header("Upload CSV File")
-
-        uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
-
-    
-        # Button to Analyze Uploaded File
-        if uploaded_file is not None:
-            if st.sidebar.button("Analyze"):
-                # Perform analysis on the uploaded file
-                df = analyze_uploaded_file(uploaded_file)
-                # Update session state with analyzed DataFrame
-                st.session_state["portfolio"] = df
-
-        display_entries()
-
-    if st.session_state["portfolio"].shape[0]>0:
-
-
+def port_analysis():
+        """
+        A function to perform port analysis by calculating consolidated holdings and displaying various charts.
+        """
         # get consolidated holdings
         all_schemes = st.session_state["portfolio"]['Scheme Name'].unique()
                     
@@ -312,84 +284,155 @@ def main():
                 st.session_state["consol_holdings"] = consol_holdings
 
             
-    # # Display the contents of the uploaded file
-    # if st.session_state["portfolio"].shape[0] >0:
+        # # Display the contents of the uploaded file
+        # if st.session_state["portfolio"].shape[0] >0:
 
-        st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
-       
-        c1, c2 = st.columns(2)
+            st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
+        
+            c1, c2 = st.columns(2)
 
-        with c1:
-            st.subheader("Scheme Type Distribution")
+            with c1:
+                st.subheader("Scheme Type Distribution")
 
-            # display donut chart
-            donut = make_donut('portfolio')
-            st.altair_chart(donut, use_container_width=True)
+                # display donut chart
+                donut = make_donut('portfolio')
+                st.altair_chart(donut, use_container_width=True)
+                
             
-           
-        with c2:
+            with c2:
+                
+                st.subheader("Value by scheme type")
+
+                # display donut chart
+                donut = make_donut('value')
+                st.altair_chart(donut, use_container_width=True)
             
-            st.subheader("Value by scheme type")
+            c1, c2 = st.columns(spec=[0.52, 0.48])
 
-            # display donut chart
-            donut = make_donut('value')
-            st.altair_chart(donut, use_container_width=True)
-        
-        c1, c2 = st.columns(spec=[0.52, 0.48])
-
-        with c1:
-            # make the heading at center 
-            st.subheader("Portfolio Holdings by Sector")
-            # make donut chart
-            donut2 = make_donut('sector_value')
-            st.altair_chart(donut2, use_container_width=True)
-        
-        
-        with c2:
-
-            # from consolidated holdings get the top companies
-            # get top 10 companies by value
-            top_companies = get_top_companies()
-            # reset index
-            top_companies.reset_index(drop=True, inplace=True)
-
-            # set index to start from 1
-            top_companies.index = top_companies.index + 1
-
-            # rename the columns
-            top_companies.rename(columns={'index': 'Rank', 'company_name': 'Company', 'percent_value': '% of Total'}, inplace=True)
-
-            # create a table in steamlit
-            st.subheader("Top 10 Companies by Value")
-
-            # convert the dataframe to a table
-            st.dataframe(top_companies,hide_index=True)
-
-        c1, c2 = st.columns(2)
-
-        with c1:
-
-            st.subheader("Sector Holdings of Scheme")
-            # select scheme for analysis
-            scheme_name = st.selectbox("Select Scheme", st.session_state["portfolio"]["Scheme Name"].unique())
-
-            # Check if a scheme is selected
-            if scheme_name is not None:
-                # update session state to selected
-
-                st.session_state["scheme"] = scheme_name
-
-                # get holdings for the scheme
-                
-                hold_df = get_scheme_holdings()
-                
-                # set session state
-                st.session_state["scheme_holdings"] = hold_df
-                
+            with c1:
+                # make the heading at center 
+                st.subheader("Portfolio Holdings by Sector")
                 # make donut chart
-                donut2 = make_donut('scheme')
+                donut2 = make_donut('sector_value')
                 st.altair_chart(donut2, use_container_width=True)
+            
+            
+            with c2:
 
+                # from consolidated holdings get the top companies
+                # get top 10 companies by value
+                top_companies = get_top_companies()
+                # reset index
+                top_companies.reset_index(drop=True, inplace=True)
+
+                # set index to start from 1
+                top_companies.index = top_companies.index + 1
+
+                # rename the columns
+                top_companies.rename(columns={'index': 'Rank', 'company_name': 'Company', 'percent_value': '% of Total'}, inplace=True)
+
+                # create a table in steamlit
+                st.subheader("Top 10 Companies by Value")
+
+                # convert the dataframe to a table
+                st.dataframe(top_companies,hide_index=True)
+
+            c1, c2 = st.columns(2)
+
+            with c1:
+
+                st.subheader("Sector Holdings of Scheme")
+                # select scheme for analysis
+                scheme_name = st.selectbox("Select Scheme", st.session_state["portfolio"]["Scheme Name"].unique())
+
+                # Check if a scheme is selected
+                if scheme_name is not None:
+                    # update session state to selected
+
+                    st.session_state["scheme"] = scheme_name
+
+                    # get holdings for the scheme
+                    
+                    hold_df = get_scheme_holdings()
+                    
+                    # set session state
+                    st.session_state["scheme_holdings"] = hold_df
+                    
+                    # make donut chart
+                    donut2 = make_donut('scheme')
+                    st.altair_chart(donut2, use_container_width=True)
+
+
+
+def main():
+    st.title("Mutual Fund Portfolio Analysis")
+
+    #Check if scheme_url exists in session state
+    if "scheme_url" not in st.session_state:
+        st.session_state["scheme_url"] = None
+    if "scheme_name" not in st.session_state:
+        st.session_state["scheme_name"] = None
+        
+
+    # Initialize session state if not already initialized
+    if "portfolio" not in st.session_state:
+        st.session_state["portfolio"] = pd.DataFrame(columns=["Scheme Name", "Units", "NAV", "Scheme Category Name","scheme_url"])
+
+        
+
+
+    with st.sidebar:
+        # Set title
+        st.header("Add Mutual Fund Entry")
+        # Define inputs for each column
+        url = st.text_input("Groww url", key="scheme_url")
+        units = st.number_input("Units", min_value=0, step=1, key="scheme_units")
+        
+
+        # Add a button to add the entry
+        if st.button("Add Entry"):
+            
+            # Validate inputs
+            if url.strip() == "":
+                st.error("Please enter a valid scheme name")
+                return
+            else:
+                input_url = url
+            if units <= 0:
+                st.error("Contribution must be a positive number.")
+                return
+            else:
+                input_units = units
+
+            # if both inputs are valid, add the entry
+            if input_url and input_units:
+                add_entry(input_url, input_units)
+                
+
+        
+        st.header('OR')
+
+        st.header("Upload CSV File")
+
+        # get uploaded file
+        uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
+
+    
+        # Button to Analyze Uploaded File
+        if uploaded_file is not None:
+            if st.sidebar.button("Analyze"):
+                # Perform analysis on the uploaded file
+                df = analyze_uploaded_file(uploaded_file)
+                # Update session state with analyzed DataFrame
+                st.session_state["portfolio"] = df
+
+        display_entries()
+
+    if st.session_state["portfolio"].shape[0]>0:
+
+        port_analysis()
+
+        
 
           
 
