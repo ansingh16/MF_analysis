@@ -8,6 +8,7 @@ import multiprocessing.pool as Pool
 import re
 
 
+
 # Donut chart
 def make_donut(type):
 
@@ -240,8 +241,7 @@ def check_ckbox():
     # Filter out unchecked entries and update the DataFrame
     portfolio = pd.DataFrame([input_data for input_data in st.session_state.portfolio if input_data['Checkbox']])
 
-    portfolio['Units'] = portfolio['Units'].astype(float)
-
+    
     return portfolio
 
 def scheme_sector_donut():
@@ -337,7 +337,14 @@ def portfolio_plots():
             st.dataframe(top_companies,hide_index=True)
 
 
+
+
 def main():
+    # Read the content of the CSS file
+    with open("./styles/sidebar.css", "r") as css_file:
+        sidebar_css = css_file.read()
+
+
     st.title("Mutual Fund Portfolio Analysis")
 
     # Initialize session state variables if not already initialized
@@ -350,31 +357,68 @@ def main():
     if 'scheme_name' not in st.session_state:
         st.session_state.scheme_name = None
 
+    # Add entry to the list of inputs
+    with st.sidebar:
+        # add logo at the center
+        
+        # Display CSS in Streamlit
+        st.markdown(f'<style>{sidebar_css}</style>', unsafe_allow_html=True)
+
+        left_co, cent_co,last_co = st.columns(3)
+        with cent_co:
+            st.image('./images/logo.jpeg', use_column_width=True)
+        
+
+        st.markdown("<h1 style='text-align: center;'>Portfolio Dashboard</h1>", unsafe_allow_html=True)
+
+
+
     # Sidebar input fields
     scheme_url = st.sidebar.text_input("Enter Scheme URL:")
     units = st.sidebar.text_input("Enter Units:")
-    
+    # Custom CSS style for the button
+    st.markdown(
+        """
+        <style>
+            .wide-button {
+                width: 200px; /* Adjust width as needed */
+                height: 50px; /* Adjust height as needed */
+                font-size: 18px; /* Adjust font size as needed */
+            }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+        
+    # Display the button with the custom style
+    if st.button("Big Button", ):
+        st.write("Button clicked!")
+
+    if st.sidebar.button("Add"):
+            if scheme_url and units:
+                # Call the function to add the entry
+                add_portfolio_entry(scheme_url, units)
+            
+
     st.sidebar.header('OR')
 
     st.sidebar.header("Upload CSV File")
+    st.sidebar.info("Please upload a CSV file with the following columns: 'Scheme URL', 'Units'")
 
     uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
 
     if uploaded_file is not None:
         # Read the uploaded file into a pandas DataFrame
         df = pd.read_csv(uploaded_file)
-        for row in df.iterrows():
-            scheme_url = row['Scheme URL']
-            units = row['Units']
+        
+        for scheme_url, units in zip(df['Scheme URL'], df['Units']):
+            # print(row)
+            # scheme_url = row['Scheme URL']
+            # units = row['Units']
             add_portfolio_entry(scheme_url, units)
 
-    # Check if add button is pressed
-    if st.sidebar.button("Add"):
-        if scheme_url and units:
-            # Call the function to add the entry
-            add_portfolio_entry(scheme_url, units)
-    
-
+   
+        
     # Display entries with checkboxes in the sidebar
     st.sidebar.subheader("Entries:")
     
@@ -382,6 +426,8 @@ def main():
     portfolio = check_ckbox()
 
     if not portfolio.empty:
+        portfolio['Units'] = portfolio['Units'].astype(float)
+
         # change Units to float
         # save session state
         st.session_state["select_portfolio"] = portfolio
