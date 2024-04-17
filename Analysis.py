@@ -376,29 +376,14 @@ def main():
     # Sidebar input fields
     scheme_url = st.sidebar.text_input("Enter Scheme URL:")
     units = st.sidebar.text_input("Enter Units:")
-    # Custom CSS style for the button
-    st.markdown(
-        """
-        <style>
-            .wide-button {
-                width: 200px; /* Adjust width as needed */
-                height: 50px; /* Adjust height as needed */
-                font-size: 18px; /* Adjust font size as needed */
-            }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-        
-    # Display the button with the custom style
-    if st.button("Big Button", ):
-        st.write("Button clicked!")
+   
+    
 
     if st.sidebar.button("Add"):
             if scheme_url and units:
                 # Call the function to add the entry
                 add_portfolio_entry(scheme_url, units)
-            
+    
 
     st.sidebar.header('OR')
 
@@ -420,7 +405,7 @@ def main():
    
         
     # Display entries with checkboxes in the sidebar
-    st.sidebar.subheader("Entries:")
+    st.sidebar.markdown("<h1 style='text-align: center;'>Schemes Entries</h1>", unsafe_allow_html=True)
     
     # check which checkboxes are checked
     portfolio = check_ckbox()
