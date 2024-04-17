@@ -1,4 +1,4 @@
-name: DS
+name: DS2
 channels:
   - conda-forge
   - defaults
