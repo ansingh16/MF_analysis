@@ -49,14 +49,14 @@ def make_donut(type):
     
     elif type=="scheme":
         input_df = st.session_state["scheme_holdings"]
-
+        input_df.rename(columns={'sector_name':'Sector'}, inplace=True)
         # Calculate category counts
-        category_counts = input_df['sector_name'].value_counts().reset_index()
-        category_counts.columns = ['sector_name', 'count']
+        category_counts = input_df['Sector'].value_counts().reset_index()
+        category_counts.columns = ['Sector', 'count']
         # Create a donut chart
         donut = alt.Chart(category_counts).mark_arc(innerRadius=20).encode(
             theta="count",
-            color="sector_name:N",
+            color="Sector:N",
         )
         return donut
         
