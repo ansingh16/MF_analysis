@@ -49,6 +49,7 @@ def make_donut(type):
     
     elif type=="scheme":
         input_df = st.session_state["scheme_holdings"]
+        # change name of column to Sector
         input_df.rename(columns={'sector_name':'Sector'}, inplace=True)
         # Calculate category counts
         category_counts = input_df['Sector'].value_counts().reset_index()
@@ -72,13 +73,13 @@ def make_donut(type):
         consol_df['Fraction Value'] = (all_scheme_value / total_value)*100
 
         # Group by Scheme Category Name and calculate the sum of the Fraction Value
-        category_value = consol_df.groupby('sector_name')['Fraction Value'].sum().reset_index()
+        category_value = consol_df.groupby('Sector')['Fraction Value'].sum().reset_index()
 
         # Create the donut chart
         donut = alt.Chart(category_value).mark_arc(innerRadius=20).encode(
-            color='sector_name:N',
+            color='Sector:N',
             theta='Fraction Value',
-            tooltip=['sector_name', alt.Tooltip('Fraction Value:Q', title='Percentage Allocated', format='.2f')]
+            tooltip=['Sector', alt.Tooltip('Fraction Value:Q', title='Percentage Allocated', format='.2f')]
         ).mark_arc(innerRadius=20,outerRadius=80)
         
         
@@ -91,13 +92,13 @@ def get_top_companies():
     consol_df = st.session_state["consol_holdings"]
 
     # get value invested in a company
-    consol_df['company_value']  = consol_df['Units'] * consol_df['NAV']*consol_df['corpus_per']
+    consol_df['company_value']  = consol_df['Units'] * consol_df['NAV']*consol_df['Percent Contribution']
     
     # percent invested in a company with respect to total value of all companies
-    consol_df['percent_value'] = (consol_df['company_value']/consol_df['company_value'].sum())*100
+    consol_df['Percentage by Value'] = (consol_df['company_value']/consol_df['company_value'].sum())*100
 
     # group by company_name and calculate the sum of the value and sort in descending order
-    top_companies = consol_df.groupby('company_name')['percent_value'].sum().reset_index().sort_values(by='percent_value', ascending=False)
+    top_companies = consol_df.groupby('Company')['Percentage by Value'].sum().reset_index().sort_values(by='Percentage by Value', ascending=False)
 
     return top_companies.head(10)
 
@@ -171,11 +172,13 @@ def get_consolidated_holdings(mf_url,mf_unit):
         # Append a new row for 'Other'
         hold_df = hold_df.append({'company_name': 'Other', 'contrib_per': other_contrib_per}, ignore_index=True)
 
-        
+    
     # hold_df = hold_df[['company_name','sector_name','corpus_per']]
 
     if not hold_df.empty:
         hold_df = hold_df[['Scheme Name','Scheme Category','company_name','sector_name','corpus_per','NAV','Units']]
+
+        hold_df.columns = ['Scheme Name','Scheme Category', 'Company', 'Sector', 'Percent Contribution', 'NAV', 'Units']
     
     return hold_df
 
@@ -441,7 +444,7 @@ def main():
                 # consolidated holdings
                 st.session_state["consol_holdings"] = consol_holdings
 
-
+        
         st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
 
         # make plots for a portfolio
