@@ -8,83 +8,137 @@ import multiprocessing.pool as Pool
 import re
 
 
+ # Initialize session state variables if not already initialized
+if 'portfolio' not in st.session_state:
+    st.session_state.portfolio = []
+if 'select_portfolio' not in st.session_state:
+    st.session_state.select_portfolio = None
+if 'consol_holdings' not in st.session_state:
+    st.session_state.consol_holdings = None
+if 'scheme_name' not in st.session_state:
+    st.session_state.scheme_name = None
+if 'selected_schemes' not in st.session_state:
+    st.session_state.selected_schemes = None       
+if 'update' not in st.session_state:
+    st.session_state.selected_schemes = None
+  
 
-# Donut chart
-def make_donut(type):
-
-    if type=="portfolio":
-        input_df = st.session_state["select_portfolio"]
-        # Calculate category counts
-        category_counts = input_df['Scheme Category Name'].value_counts().reset_index()
-        category_counts.columns = ['Scheme Category Name', 'count']
-        # Create a donut chart
-        donut = alt.Chart(category_counts).mark_arc(innerRadius=20).encode(
+@st.cache_data
+def donut_portfolio(consol_holdings):
+    # Calculate category counts
+    category_counts = consol_holdings['Scheme Category'].value_counts().reset_index()
+    category_counts.columns = ['Scheme Category', 'count']
+    # Create a donut chart
+    donut = alt.Chart(category_counts).mark_arc(innerRadius=20).encode(
             theta="count",
-            color="Scheme Category Name:N",
+            color="Scheme Category:N",
         )
-        return donut
+    return donut
+
+@st.cache_data
+def donut_value(mf_portfolio):
     
-    elif type=="value":
-        mf_portfolio = st.session_state["select_portfolio"]
-
         
-        # Calculate current value in schemes
-        scheme_value = mf_portfolio['Units'] * mf_portfolio['NAV']
-        # get total value
-        total_value = scheme_value.sum()
-        mf_portfolio['Fraction Value'] = (scheme_value / total_value)*100
+    # Calculate current value in schemes
+    scheme_value = mf_portfolio['Units'] * mf_portfolio['NAV']
+    # get total value
+    total_value = scheme_value.sum()
+    mf_portfolio['Fraction Value'] = (scheme_value / total_value)*100
 
-        # Group by Scheme Category Name and calculate the sum of the Fraction Value
-        category_value = mf_portfolio.groupby('Scheme Category Name')['Fraction Value'].sum().reset_index()
+    # Group by Scheme Category Name and calculate the sum of the Fraction Value
+    category_value = mf_portfolio.groupby('Scheme Category')['Fraction Value'].sum().reset_index()
 
-        # Create the donut chart
-        donut = alt.Chart(category_value).mark_arc(innerRadius=20).encode(
-            color='Scheme Category Name:N',
+    # Create the donut chart
+    donut = alt.Chart(category_value).mark_arc(innerRadius=20).encode(
+            color='Scheme Category:N',
             theta='Fraction Value',
-            tooltip=['Scheme Category Name', alt.Tooltip('Fraction Value:Q', title='Percentage Allocated', format='.2f')]
+            tooltip=['Scheme Category', alt.Tooltip('Fraction Value:Q', title='Percentage Allocated', format='.2f')]
         )
         
         
-        return donut
-    
-    elif type=="scheme":
-        input_df = st.session_state["scheme_holdings"]
-        # change name of column to Sector
-        input_df.rename(columns={'sector_name':'Sector'}, inplace=True)
-        # Calculate category counts
-        category_counts = input_df['Sector'].value_counts().reset_index()
-        category_counts.columns = ['Sector', 'count']
-        # Create a donut chart
-        donut = alt.Chart(category_counts).mark_arc(innerRadius=20).encode(
-            theta="count",
-            color="Sector:N",
-        )
-        return donut
-        
-    
-   
-    
-    elif type=="sector_value":
-        consol_df = st.session_state["consol_holdings"]
-        # Calculate current value in schemes
-        all_scheme_value = consol_df['Units'] * consol_df['NAV']
-        # get total value
-        total_value = all_scheme_value.sum()
-        consol_df['Fraction Value'] = (all_scheme_value / total_value)*100
+    return donut
 
-        # Group by Scheme Category Name and calculate the sum of the Fraction Value
-        category_value = consol_df.groupby('Sector')['Fraction Value'].sum().reset_index()
+@st.cache_data
+def donut_sector_value(consol_df):
+    consol_df = st.session_state["consol_holdings"]
+    # Calculate current value in schemes
+    all_scheme_value = consol_df['Units'] * consol_df['NAV']
+    # get total value
+    total_value = all_scheme_value.sum()
+    consol_df['Fraction Value'] = (all_scheme_value / total_value)*100
 
-        # Create the donut chart
-        donut = alt.Chart(category_value).mark_arc(innerRadius=20).encode(
+    # Group by Scheme Category Name and calculate the sum of the Fraction Value
+    category_value = consol_df.groupby('Sector')['Fraction Value'].sum().reset_index()
+
+    # Create the donut chart
+    donut = alt.Chart(category_value).mark_arc(innerRadius=20).encode(
             color='Sector:N',
             theta='Fraction Value',
             tooltip=['Sector', alt.Tooltip('Fraction Value:Q', title='Percentage Allocated', format='.2f')]
         ).mark_arc(innerRadius=20,outerRadius=80)
         
         
-        return donut
+    return donut
+
+@st.cache_data
+def donut_scheme_holding(holdings_df):
     
+    # change name of column to Sector
+    holdings_df.rename(columns={'sector_name':'Sector'}, inplace=True)
+    # Calculate category counts
+    category_counts = holdings_df['Sector'].value_counts().reset_index()
+    category_counts.columns = ['Sector', 'count']
+    # Create a donut chart
+    donut = alt.Chart(category_counts).mark_arc(innerRadius=20).encode(
+            theta="count",
+            color="Sector:N",
+        )
+    return donut
+
+
+def compare_schemes(consol_df, scheme1, scheme2):
+   
+    # get the selected schemes
+    portfolio1 = consol_df.loc[consol_df['Scheme Name'] == scheme1]
+    portfolio2 = consol_df.loc[consol_df['Scheme Name'] == scheme2]
+
+    # print(portfolio1)
+    # print(portfolio2)
+
+    df = pd.concat([portfolio1, portfolio2], axis=0)
+
+    df_grouped = df.groupby(['Scheme Name', 'Sector']).agg({
+        'Percent Contribution': 'sum',
+        'Company': lambda x: ', '.join(set(x))
+    }).reset_index()
+
+    # print(df_grouped)
+
+    chart = alt.Chart(df_grouped).mark_bar().encode(
+        x='Sector:N',
+        y='sum(Percent Contribution):Q',
+        color='Scheme Name:N',
+        tooltip=['Sector:N', 'Company:N'],
+        xOffset=alt.XOffset("Scheme Name:N")
+    ).properties(
+        title='Sectorwise Contribution of Schemes',
+        width=600,
+        height=400
+    ).configure_axis(
+        labelFontSize=12,
+        titleFontSize=14,
+        grid=False
+    ).configure_legend(
+        labelFontSize=12
+    )
+
+    return chart
+
+
+    
+
+
+
 def get_top_companies():
     """
     Function to get top companies
@@ -103,11 +157,11 @@ def get_top_companies():
     return top_companies.head(10)
 
 # get holdings
-def get_scheme_holdings():
+def get_scheme_holdings(consol_holdings):
     """
     filter the holdings based on the selected scheme
     """
-    scheme_df = st.session_state["consol_holdings"]
+    scheme_df = consol_holdings
 
     hold_df = scheme_df.loc[scheme_df['Scheme Name'] == st.session_state.scheme_name]
 
@@ -183,19 +237,12 @@ def get_consolidated_holdings(mf_url,mf_unit):
     return hold_df
 
 
-
 # Function to load data
-@st.cache_data
 def analyze_uploaded_file(uploaded_file):
     if uploaded_file is not None:
         # Read the uploaded file into a pandas DataFrame
         df = pd.read_csv(uploaded_file)
         return df
-
-
-
-
-#     st.success("Entry added successfully.")
 
 
 def add_portfolio_entry(scheme_url, units):
@@ -247,17 +294,16 @@ def check_ckbox():
     
     return portfolio
 
-def scheme_sector_donut():
+@st.cache_data(experimental_allow_widgets=True)
+def scheme_sector_donut(scheme_name,portfolio):
 
-    # select scheme for analysis
-    scheme_name = st.selectbox("Select Scheme", st.session_state["select_portfolio"]["Scheme Name"].unique())
-
+    
     # Check if a scheme is selected
     if scheme_name is not None:
             # update session state to selected
 
             # get url from scheme_name
-            scheme_url = st.session_state["select_portfolio"].loc[st.session_state["select_portfolio"]["Scheme Name"] == scheme_name,"Scheme URL"].values[0]
+            scheme_url = portfolio.loc[portfolio["Scheme Name"] == scheme_name,"Scheme URL"].values[0]
 
             url = requests.get(scheme_url)
             # scrape url
@@ -282,11 +328,12 @@ def scheme_sector_donut():
             st.session_state["scheme_holdings"] = hold_df
                     
             # make donut chart
-            donut2 = make_donut('scheme')
+            donut2 = donut_scheme_holding(hold_df)
             st.altair_chart(donut2, use_container_width=True)
 
 
-def portfolio_plots():
+@st.cache_data
+def portfolio_plots(consol_holdings):
 
     c1, c2 = st.columns(2)
 
@@ -294,7 +341,7 @@ def portfolio_plots():
             st.subheader("Scheme Type Distribution")
 
             # display donut chart
-            donut = make_donut('portfolio')
+            donut = donut_portfolio(consol_holdings)
             st.altair_chart(donut, use_container_width=True)
             
            
@@ -303,7 +350,7 @@ def portfolio_plots():
             st.subheader("Value by scheme type")
 
             # display donut chart
-            donut = make_donut('value')
+            donut = donut_value(consol_holdings)
             st.altair_chart(donut, use_container_width=True)
 
 
@@ -315,7 +362,7 @@ def portfolio_plots():
             # make the heading at center 
             st.subheader("Portfolio Holdings by Sector")
             # make donut chart
-            donut2 = make_donut('sector_value')
+            donut2 = donut_sector_value(consol_holdings)
             st.altair_chart(donut2, use_container_width=True)
         
         
@@ -342,6 +389,7 @@ def portfolio_plots():
 
 
 
+
 def main():
     # Read the content of the CSS file
     with open("./styles/sidebar.css", "r") as css_file:
@@ -350,16 +398,7 @@ def main():
 
     st.title("Mutual Fund Portfolio Analysis")
 
-    # Initialize session state variables if not already initialized
-    if 'portfolio' not in st.session_state:
-        st.session_state.portfolio = []
-    if 'select_portfolio' not in st.session_state:
-        st.session_state.select_portfolio = None
-    if 'consol_holdings' not in st.session_state:
-        st.session_state.consol_holdings = None
-    if 'scheme_name' not in st.session_state:
-        st.session_state.scheme_name = None
-
+   
     # Add entry to the list of inputs
     with st.sidebar:
         # add logo at the center
@@ -382,7 +421,7 @@ def main():
    
     
 
-    if st.sidebar.button("Add"):
+    if st.sidebar.button("Add", key="add"):
             if scheme_url and units:
                 # Call the function to add the entry
                 add_portfolio_entry(scheme_url, units)
@@ -395,15 +434,15 @@ def main():
 
     uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
 
-    if uploaded_file is not None:
-        # Read the uploaded file into a pandas DataFrame
-        df = pd.read_csv(uploaded_file)
-        
-        for scheme_url, units in zip(df['Scheme URL'], df['Units']):
-            # print(row)
-            # scheme_url = row['Scheme URL']
-            # units = row['Units']
-            add_portfolio_entry(scheme_url, units)
+    if st.sidebar.button("Add file",key="add_csv"):
+        if uploaded_file is not None:
+            # Read the uploaded file into a pandas DataFrame
+            df = pd.read_csv(uploaded_file)
+            
+            for scheme_url, units in zip(df['Scheme URL'], df['Units']):
+                # scheme_url = row['Scheme URL']
+                # units = row['Units']
+                add_portfolio_entry(scheme_url, units)
 
    
         
@@ -414,42 +453,76 @@ def main():
     portfolio = check_ckbox()
 
     if not portfolio.empty:
-        portfolio['Units'] = portfolio['Units'].astype(float)
 
         # change Units to float
-        # save session state
-        st.session_state["select_portfolio"] = portfolio
+        portfolio['Units'] = portfolio['Units'].astype(float)
 
-        st.subheader("Sector Holdings of Scheme")
-        scheme_sector_donut()
-
-    
-    # Display the portfolio dataframe
-    if st.sidebar.button("Analyze"):
-       
-        # get consolidated holdings
-        all_url = st.session_state.select_portfolio['Scheme URL'].unique()
-        all_units = st.session_state.select_portfolio['Units'].unique()
-                    
-        with st.spinner("Calculating Consolidated Holdings..."):
-                            
-            with Pool.Pool(4) as p:
-
-                # use starmap to run in parallel on all urls
-                consol_holdings_list = p.starmap(get_consolidated_holdings, zip(all_url,all_units))
+        
+        if st.session_state["consol_holdings"] is None:
+             # get consolidated holdings
+            all_url = portfolio['Scheme URL'].unique()
+            all_units = portfolio['Units'].unique()
                 
+            with st.spinner("Calculating Consolidated Holdings..."):
+                consol_holdings_list = []             
+                for url, units in zip(all_url, all_units):
+                        # get consolidated holdings
+
+                        # use starmap to run in parallel on all urls
+                        holdings = get_consolidated_holdings(url,units)
+                        
+                        # append list
+                        consol_holdings_list.append(holdings)
+
                 # concat the list of dataframes into a single dataframe
                 consol_holdings = pd.concat(consol_holdings_list, ignore_index=True)
 
                 # consolidated holdings
                 st.session_state["consol_holdings"] = consol_holdings
 
-        
-        st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
 
-        # make plots for a portfolio
-        portfolio_plots()
+        st.subheader("Sector Holdings of Scheme")
+
+        # select scheme for analysis
+        scheme_name = st.selectbox("Select Scheme", portfolio["Scheme Name"].unique())
+
+        scheme_sector_donut(scheme_name,portfolio)
         
+        st.markdown("---")
+
+        if portfolio.shape[0]>=2:
+             
+            st.markdown("<h3 style='text-align:center'>Scheme Comparison</h3>", unsafe_allow_html=True)
+
+            # Display the dataframe with checkboxes for selection
+                        
+            # Display the multiselect widget to select schemes
+            selected_schemes = st.multiselect('Select 2 schemes to compare:', portfolio["Scheme Name"].unique(), default=[], max_selections=3)
+
+            # Ensure only two schemes are selected
+            if len(selected_schemes) > 2:
+                st.warning('Please select only 2 schemes.')
+            elif len(selected_schemes) == 2:
+                
+                if st.button("Compare"):
+                    chart = compare_schemes(st.session_state.consol_holdings,selected_schemes[0],selected_schemes[1])
+
+                    st.altair_chart(chart)
+            
+
+        st.markdown("---")
+                    
+        
+        # Display the portfolio dataframe
+        if st.sidebar.button("Analyze"):
+        
+           
+            
+            st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
+
+            # make plots for a portfolio
+            portfolio_plots(st.session_state.consol_holdings)
+            
 
           
 
