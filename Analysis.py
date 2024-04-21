@@ -95,17 +95,46 @@ def donut_scheme_holding(holdings_df):
         )
     return donut
 
+@st.cache_data
+def get_scheme_hold(portfolio,scheme_name):
+    
+    scheme_url = portfolio.loc[portfolio["Scheme Name"] == scheme_name,"Scheme URL"].values[0]
 
-def compare_schemes(consol_df, scheme1, scheme2):
+    url = requests.get(scheme_url)
+    # scrape url
+    soup = BeautifulSoup(url.text, 'html.parser')
+    
+    # Find the script tag with the specific ID
+    script_tag = soup.find('script', id='__NEXT_DATA__')
+
+    # Extract the JSON data from the script tag content
+    json_data = json.loads(script_tag.contents[0])
+
+    # get holdings
+    holdings = json_data['props']['pageProps']['mf']['holdings']
+
+    hold_df = pd.DataFrame(holdings)
+
+    return hold_df
+
+@st.cache_data
+def compare_schemes(portfolio, scheme1, scheme2):
    
-    # get the selected schemes
-    portfolio1 = consol_df.loc[consol_df['Scheme Name'] == scheme1]
-    portfolio2 = consol_df.loc[consol_df['Scheme Name'] == scheme2]
+
+    portfolio1 = get_scheme_hold(portfolio, scheme1)
+    portfolio2 = get_scheme_hold(portfolio, scheme2)
+
+    portfolio1['Scheme Name'] = scheme1
+    portfolio2['Scheme Name'] = scheme2
+
+    portfolio1.rename(columns={'sector_name':'Sector', 'company_name':'Company', 'corpus_per':'Percent Contribution'}, inplace=True)
+    portfolio2.rename(columns={'sector_name':'Sector', 'company_name':'Company', 'corpus_per':'Percent Contribution'}, inplace=True)
 
     # print(portfolio1)
     # print(portfolio2)
 
     df = pd.concat([portfolio1, portfolio2], axis=0)
+
 
     df_grouped = df.groupby(['Scheme Name', 'Sector']).agg({
         'Percent Contribution': 'sum',
@@ -155,18 +184,6 @@ def get_top_companies():
     top_companies = consol_df.groupby('Company')['Percentage by Value'].sum().reset_index().sort_values(by='Percentage by Value', ascending=False)
 
     return top_companies.head(10)
-
-# get holdings
-def get_scheme_holdings(consol_holdings):
-    """
-    filter the holdings based on the selected scheme
-    """
-    scheme_df = consol_holdings
-
-    hold_df = scheme_df.loc[scheme_df['Scheme Name'] == st.session_state.scheme_name]
-
-    return hold_df
-
 
 
 @st.cache_data
@@ -332,7 +349,6 @@ def scheme_sector_donut(scheme_name,portfolio):
             st.altair_chart(donut2, use_container_width=True)
 
 
-@st.cache_data
 def portfolio_plots(consol_holdings):
 
     c1, c2 = st.columns(2)
@@ -416,7 +432,7 @@ def main():
 
 
     # Sidebar input fields
-    scheme_url = st.sidebar.text_input("Enter Scheme URL:")
+    scheme_url = st.sidebar.text_input("Enter Groww Scheme URL:")
     units = st.sidebar.text_input("Enter Units:")
    
     
@@ -458,29 +474,7 @@ def main():
         portfolio['Units'] = portfolio['Units'].astype(float)
 
         
-        if st.session_state["consol_holdings"] is None:
-             # get consolidated holdings
-            all_url = portfolio['Scheme URL'].unique()
-            all_units = portfolio['Units'].unique()
-                
-            with st.spinner("Calculating Consolidated Holdings..."):
-                consol_holdings_list = []             
-                for url, units in zip(all_url, all_units):
-                        # get consolidated holdings
-
-                        # use starmap to run in parallel on all urls
-                        holdings = get_consolidated_holdings(url,units)
-                        
-                        # append list
-                        consol_holdings_list.append(holdings)
-
-                # concat the list of dataframes into a single dataframe
-                consol_holdings = pd.concat(consol_holdings_list, ignore_index=True)
-
-                # consolidated holdings
-                st.session_state["consol_holdings"] = consol_holdings
-
-
+        
         st.subheader("Sector Holdings of Scheme")
 
         # select scheme for analysis
@@ -505,7 +499,7 @@ def main():
             elif len(selected_schemes) == 2:
                 
                 if st.button("Compare"):
-                    chart = compare_schemes(st.session_state.consol_holdings,selected_schemes[0],selected_schemes[1])
+                    chart = compare_schemes(portfolio,selected_schemes[0],selected_schemes[1])
 
                     st.altair_chart(chart)
             
@@ -517,7 +511,29 @@ def main():
         if st.sidebar.button("Analyze"):
         
            
-            
+            if portfolio.shape[0] >=1:
+                # get consolidated holdings
+                all_url = portfolio['Scheme URL'].unique()
+                all_units = portfolio['Units'].unique()
+                    
+                with st.spinner("Calculating Consolidated Holdings..."):
+                    consol_holdings_list = []             
+                    for url, units in zip(all_url, all_units):
+                            # get consolidated holdings
+
+                            # use starmap to run in parallel on all urls
+                            holdings = get_consolidated_holdings(url,units)
+                            
+                            # append list
+                            consol_holdings_list.append(holdings)
+
+                    # concat the list of dataframes into a single dataframe
+                    consol_holdings = pd.concat(consol_holdings_list, ignore_index=True)
+
+                    # consolidated holdings
+                    st.session_state["consol_holdings"] = consol_holdings
+
+
             st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
 
             # make plots for a portfolio
