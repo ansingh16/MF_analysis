@@ -6,6 +6,7 @@ import json
 import altair as alt
 import multiprocessing.pool as Pool
 import re
+import hydralit as hy
 
 
  # Initialize session state variables if not already initialized
@@ -21,7 +22,10 @@ if 'selected_schemes' not in st.session_state:
     st.session_state.selected_schemes = None       
 if 'update' not in st.session_state:
     st.session_state.selected_schemes = None
-  
+
+
+app = hy.HydraApp(title='Simple Multi-Page App')
+
 
 @st.cache_data
 def donut_portfolio(consol_holdings):
@@ -403,10 +407,100 @@ def portfolio_plots(consol_holdings):
             st.dataframe(top_companies,hide_index=True)
 
 
+@app.addapp()
+def nav_scheme_sector():
+     
+    # check which checkboxes are checked
+    portfolio = check_ckbox()
 
+    if not portfolio.empty:
+
+        # change Units to float
+        portfolio['Units'] = portfolio['Units'].astype(float)
+
+        
+        
+        st.subheader("Sector Holdings of Scheme")
+
+        # select scheme for analysis
+        scheme_name = st.selectbox("Select Scheme", portfolio["Scheme Name"].unique())
+
+        scheme_sector_donut(scheme_name,portfolio)
+
+
+
+@app.addapp()
+def nav_scheme_compare():
+     # check which checkboxes are checked
+    portfolio = check_ckbox()
+
+    if not portfolio.empty:
+
+        if portfolio.shape[0]>=2:
+             
+            st.markdown("<h3 style='text-align:center'>Scheme Comparison</h3>", unsafe_allow_html=True)
+
+            # Display the dataframe with checkboxes for selection
+                        
+            # Display the multiselect widget to select schemes
+            selected_schemes = st.multiselect('Select 2 schemes to compare:', portfolio["Scheme Name"].unique(), default=[], max_selections=3)
+
+            # Ensure only two schemes are selected
+            if len(selected_schemes) > 2:
+                st.warning('Please select only 2 schemes.')
+            elif len(selected_schemes) == 2:
+                
+                if st.button("Compare"):
+                    chart = compare_schemes(portfolio,selected_schemes[0],selected_schemes[1])
+
+                    st.altair_chart(chart)
+           
+
+@app.addapp()
+def nav_portfolio():
+    # check which checkboxes are checked
+    portfolio = check_ckbox()
+
+    if not portfolio.empty:
+
+            # Display the portfolio dataframe
+            if st.sidebar.button("Analyze"):
+            
+            
+                if portfolio.shape[0] >=1:
+                    # get consolidated holdings
+                    all_url = portfolio['Scheme URL'].unique()
+                    all_units = portfolio['Units'].unique()
+                        
+                    with st.spinner("Calculating Consolidated Holdings..."):
+                        consol_holdings_list = []             
+                        for url, units in zip(all_url, all_units):
+                                # get consolidated holdings
+
+                                # use starmap to run in parallel on all urls
+                                holdings = get_consolidated_holdings(url,units)
+                                
+                                # append list
+                                consol_holdings_list.append(holdings)
+
+                        # concat the list of dataframes into a single dataframe
+                        consol_holdings = pd.concat(consol_holdings_list, ignore_index=True)
+
+                        # consolidated holdings
+                        st.session_state["consol_holdings"] = consol_holdings
+
+
+                st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
+
+                # make plots for a portfolio
+                portfolio_plots(st.session_state.consol_holdings)
+                
 
 
 def main():
+
+    app.run()
+
     # Read the content of the CSS file
     with open("./styles/sidebar.css", "r") as css_file:
         sidebar_css = css_file.read()
@@ -431,114 +525,52 @@ def main():
 
 
 
-    # Sidebar input fields
-    scheme_url = st.sidebar.text_input("Enter Groww Scheme URL:")
-    units = st.sidebar.text_input("Enter Units:")
-   
+        # Sidebar input fields
+        scheme_url = st.text_input("Enter Groww Scheme URL:")
+        units = st.text_input("Enter Units:")
     
-
-    if st.sidebar.button("Add", key="add"):
-            if scheme_url and units:
-                # Call the function to add the entry
-                add_portfolio_entry(scheme_url, units)
-    
-
-    st.sidebar.header('OR')
-
-    st.sidebar.header("Upload CSV File")
-    st.sidebar.info("Please upload a CSV file with the following columns: 'Scheme URL', 'Units'")
-
-    uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
-
-    if st.sidebar.button("Add file",key="add_csv"):
-        if uploaded_file is not None:
-            # Read the uploaded file into a pandas DataFrame
-            df = pd.read_csv(uploaded_file)
-            
-            for scheme_url, units in zip(df['Scheme URL'], df['Units']):
-                # scheme_url = row['Scheme URL']
-                # units = row['Units']
-                add_portfolio_entry(scheme_url, units)
-
-   
         
-    # Display entries with checkboxes in the sidebar
-    st.sidebar.markdown("<h1 style='text-align: center;'>Schemes Entries</h1>", unsafe_allow_html=True)
-    
-    # check which checkboxes are checked
-    portfolio = check_ckbox()
 
-    if not portfolio.empty:
-
-        # change Units to float
-        portfolio['Units'] = portfolio['Units'].astype(float)
-
+        if st.button("Add", key="add"):
+                if scheme_url and units:
+                    # Call the function to add the entry
+                    add_portfolio_entry(scheme_url, units)
         
-        
-        st.subheader("Sector Holdings of Scheme")
 
-        # select scheme for analysis
-        scheme_name = st.selectbox("Select Scheme", portfolio["Scheme Name"].unique())
+        st.header('OR')
 
-        scheme_sector_donut(scheme_name,portfolio)
-        
-        st.markdown("---")
+        st.header("Upload CSV File")
+        st.info("Please upload a CSV file with the following columns: 'Scheme URL', 'Units'")
 
-        if portfolio.shape[0]>=2:
-             
-            st.markdown("<h3 style='text-align:center'>Scheme Comparison</h3>", unsafe_allow_html=True)
+        uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
-            # Display the dataframe with checkboxes for selection
-                        
-            # Display the multiselect widget to select schemes
-            selected_schemes = st.multiselect('Select 2 schemes to compare:', portfolio["Scheme Name"].unique(), default=[], max_selections=3)
-
-            # Ensure only two schemes are selected
-            if len(selected_schemes) > 2:
-                st.warning('Please select only 2 schemes.')
-            elif len(selected_schemes) == 2:
+        if st.button("Add file",key="add_csv"):
+            if uploaded_file is not None:
+                # Read the uploaded file into a pandas DataFrame
+                df = pd.read_csv(uploaded_file)
                 
-                if st.button("Compare"):
-                    chart = compare_schemes(portfolio,selected_schemes[0],selected_schemes[1])
+                for scheme_url, units in zip(df['Scheme URL'], df['Units']):
+                    # scheme_url = row['Scheme URL']
+                    # units = row['Units']
+                    add_portfolio_entry(scheme_url, units)
 
-                    st.altair_chart(chart)
+    
             
+        # Display entries with checkboxes in the sidebar
+        st.markdown("<h1 style='text-align: center;'>Schemes Entries</h1>", unsafe_allow_html=True)
+        
+
+        
+    
+        st.markdown("---")
+
+
+     
 
         st.markdown("---")
                     
         
-        # Display the portfolio dataframe
-        if st.sidebar.button("Analyze"):
         
-           
-            if portfolio.shape[0] >=1:
-                # get consolidated holdings
-                all_url = portfolio['Scheme URL'].unique()
-                all_units = portfolio['Units'].unique()
-                    
-                with st.spinner("Calculating Consolidated Holdings..."):
-                    consol_holdings_list = []             
-                    for url, units in zip(all_url, all_units):
-                            # get consolidated holdings
-
-                            # use starmap to run in parallel on all urls
-                            holdings = get_consolidated_holdings(url,units)
-                            
-                            # append list
-                            consol_holdings_list.append(holdings)
-
-                    # concat the list of dataframes into a single dataframe
-                    consol_holdings = pd.concat(consol_holdings_list, ignore_index=True)
-
-                    # consolidated holdings
-                    st.session_state["consol_holdings"] = consol_holdings
-
-
-            st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
-
-            # make plots for a portfolio
-            portfolio_plots(st.session_state.consol_holdings)
-            
 
           
 

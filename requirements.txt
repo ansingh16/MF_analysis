@@ -3,4 +3,5 @@ pandas
 requests
 bs4 
 altair
-
+mftool
+hydralit_components
