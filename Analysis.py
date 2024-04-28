@@ -6,10 +6,14 @@ import json
 import altair as alt
 import multiprocessing.pool as Pool
 import re
-import hydralit as hy
+from streamlit_navigation_bar import st_navbar
 
 
  # Initialize session state variables if not already initialized
+
+st.set_page_config(initial_sidebar_state="expanded")
+
+
 if 'portfolio' not in st.session_state:
     st.session_state.portfolio = []
 if 'select_portfolio' not in st.session_state:
@@ -23,8 +27,25 @@ if 'selected_schemes' not in st.session_state:
 if 'update' not in st.session_state:
     st.session_state.selected_schemes = None
 
-
-app = hy.HydraApp(title='Simple Multi-Page App')
+styles_nav = {
+        "nav": {
+            "background-color": "#7BD192",
+        },
+        "div": {
+            "max-width": "32rem",
+        },
+        "span": {
+            "border-radius": "0.5rem",
+            "padding": "0.4375rem 0.625rem",
+            "margin": "0 0.125rem",
+        },
+        "active": {
+            "background-color": "rgba(255, 255, 255, 0.25)",
+        },
+        "hover": {
+            "background-color": "rgba(255, 255, 255, 0.35)",
+        },
+    }
 
 
 @st.cache_data
@@ -347,10 +368,13 @@ def scheme_sector_donut(scheme_name,portfolio):
                     
             # set session state
             st.session_state["scheme_holdings"] = hold_df
-                    
-            # make donut chart
-            donut2 = donut_scheme_holding(hold_df)
-            st.altair_chart(donut2, use_container_width=True)
+            
+            left_co, cent_co,last_co = st.columns(3)
+            with cent_co:
+        
+                # make donut chart
+                donut2 = donut_scheme_holding(hold_df)
+                st.altair_chart(donut2)
 
 
 def portfolio_plots(consol_holdings):
@@ -358,20 +382,25 @@ def portfolio_plots(consol_holdings):
     c1, c2 = st.columns(2)
 
     with c1:
-            st.subheader("Scheme Type Distribution")
-
-            # display donut chart
-            donut = donut_portfolio(consol_holdings)
-            st.altair_chart(donut, use_container_width=True)
             
+            left_co, cent_co,last_co = st.columns(3)
+            with cent_co:
+                st.subheader("Scheme Type Distribution")
+
+                # display donut chart
+                donut = donut_portfolio(consol_holdings)
+                st.altair_chart(donut)
+                
            
     with c2:
-            
-            st.subheader("Value by scheme type")
+           
+            left_co, cent_co,last_co = st.columns(3)
+            with cent_co:
+                st.subheader("Value by scheme type")
 
-            # display donut chart
-            donut = donut_value(consol_holdings)
-            st.altair_chart(donut, use_container_width=True)
+                # display donut chart
+                donut = donut_value(consol_holdings)
+                st.altair_chart(donut)
 
 
 
@@ -379,12 +408,14 @@ def portfolio_plots(consol_holdings):
     c1, c2 = st.columns(spec=[0.52, 0.48])
 
     with c1:
-            # make the heading at center 
-            st.subheader("Portfolio Holdings by Sector")
-            # make donut chart
-            donut2 = donut_sector_value(consol_holdings)
-            st.altair_chart(donut2, use_container_width=True)
-        
+            left_co, cent_co,last_co = st.columns(3)
+            with cent_co:
+                # make the heading at center 
+                st.subheader("Portfolio Holdings by Sector")
+                # make donut chart
+                donut2 = donut_sector_value(consol_holdings)
+                st.altair_chart(donut2)
+            
         
     with c2:
 
@@ -400,19 +431,20 @@ def portfolio_plots(consol_holdings):
             # rename the columns
             top_companies.rename(columns={'index': 'Rank', 'company_name': 'Company', 'percent_value': '% of Total'}, inplace=True)
 
-            # create a table in steamlit
-            st.subheader("Top 10 Companies by Value")
+            left_co, cent_co,last_co = st.columns(3)
+            with cent_co:
+                    
+                # create a table in steamlit
+                st.subheader("Top 10 Companies by Value")
 
-            # convert the dataframe to a table
-            st.dataframe(top_companies,hide_index=True)
+                # convert the dataframe to a table
+                st.dataframe(top_companies,hide_index=True)
 
 
-@app.addapp()
-def nav_scheme_sector():
+def nav_scheme_sector(portfolio):
      
     # check which checkboxes are checked
-    portfolio = check_ckbox()
-
+    
     if not portfolio.empty:
 
         # change Units to float
@@ -429,10 +461,8 @@ def nav_scheme_sector():
 
 
 
-@app.addapp()
-def nav_scheme_compare():
-     # check which checkboxes are checked
-    portfolio = check_ckbox()
+def nav_scheme_compare(portfolio):
+    
 
     if not portfolio.empty:
 
@@ -456,11 +486,8 @@ def nav_scheme_compare():
                     st.altair_chart(chart)
            
 
-@app.addapp()
-def nav_portfolio():
-    # check which checkboxes are checked
-    portfolio = check_ckbox()
-
+def nav_portfolio(portfolio):
+    
     if not portfolio.empty:
 
             # Display the portfolio dataframe
@@ -499,14 +526,20 @@ def nav_portfolio():
 
 def main():
 
-    app.run()
+
+    pages = [ "Scheme Distribution", "Scheme Compare", "Portfolio"]
+
+    # Render the navigation bar
+    navigation = st_navbar(pages, styles=styles_nav)
+
+
 
     # Read the content of the CSS file
     with open("./styles/sidebar.css", "r") as css_file:
         sidebar_css = css_file.read()
 
 
-    st.title("Mutual Fund Portfolio Analysis")
+    # st.title("Mutual Fund Portfolio Analysis")
 
    
     # Add entry to the list of inputs
@@ -559,16 +592,18 @@ def main():
         # Display entries with checkboxes in the sidebar
         st.markdown("<h1 style='text-align: center;'>Schemes Entries</h1>", unsafe_allow_html=True)
         
+         # check which checkboxes are checked
+        portfolio = check_ckbox()
 
-        
+    if navigation == 'Scheme Distribution':
+            nav_scheme_sector(portfolio)
+    elif navigation == 'Scheme Compare':
+            nav_scheme_compare(portfolio)
+    elif navigation == 'Portfolio':
+            nav_portfolio(portfolio)
     
-        st.markdown("---")
 
-
-     
-
-        st.markdown("---")
-                    
+    
         
         
 

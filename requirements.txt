@@ -4,4 +4,4 @@ requests
 bs4 
 altair
 mftool
-hydralit_components
+streamlit_navigation_bar
