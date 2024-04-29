@@ -32,12 +32,10 @@ if 'update' not in st.session_state:
 
 styles_nav = {
         "nav": {
+             "width": "80%",
             "background-color": "teal",
-            "text-align": "right",
+            "float": "right",
             "overflow": "hidden",
-        },
-        "div": {
-            "max-width": "35rem",
         },
         "span": {
             "border-radius": "0.5rem",
@@ -49,7 +47,7 @@ styles_nav = {
         },
         "hover": {
             "background-color": "rgba(255, 255, 255, 0.35)",
-        },
+        }
     }
 
 
