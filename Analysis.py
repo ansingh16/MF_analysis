@@ -7,12 +7,15 @@ import altair as alt
 import multiprocessing.pool as Pool
 import re
 from streamlit_navigation_bar import st_navbar
+from pathlib import Path
 
-
- # Initialize session state variables if not already initialized
+def read_markdown_file(markdown_file):
+    return Path(markdown_file).read_text()
 
 st.set_page_config(initial_sidebar_state="expanded")
 
+
+ # Initialize session state variables if not already initialized
 
 if 'portfolio' not in st.session_state:
     st.session_state.portfolio = []
@@ -29,10 +32,12 @@ if 'update' not in st.session_state:
 
 styles_nav = {
         "nav": {
-            "background-color": "#7BD192",
+            "background-color": "teal",
+            "text-align": "right",
+            "overflow": "hidden",
         },
         "div": {
-            "max-width": "32rem",
+            "max-width": "35rem",
         },
         "span": {
             "border-radius": "0.5rem",
@@ -252,7 +257,7 @@ def get_consolidated_holdings(mf_url,mf_unit):
     hold_df = pd.DataFrame(holdings)
     hold_df['Scheme Name'] = scheme_name
     hold_df['NAV'] = float(NAV)
-    hold_df['Units'] = mf_unit
+    hold_df['Units'] = float(mf_unit)
     hold_df['Scheme Category'] = category + " - " + subcategory
     # hold_df['Scheme Sub-Category'] = subcategory
 
@@ -336,46 +341,7 @@ def check_ckbox():
     
     return portfolio
 
-@st.cache_data(experimental_allow_widgets=True)
-def scheme_sector_donut(scheme_name,portfolio):
-
-    
-    # Check if a scheme is selected
-    if scheme_name is not None:
-            # update session state to selected
-
-            # get url from scheme_name
-            scheme_url = portfolio.loc[portfolio["Scheme Name"] == scheme_name,"Scheme URL"].values[0]
-
-            url = requests.get(scheme_url)
-            # scrape url
-            soup = BeautifulSoup(url.text, 'html.parser')
-
-            # get scheme name
-            scheme_name = soup.find_all('title')[0].get_text().split('-')[0].strip()
-
-            # Find the script tag with the specific ID
-            script_tag = soup.find('script', id='__NEXT_DATA__')
-
-            # Extract the JSON data from the script tag content
-            json_data = json.loads(script_tag.contents[0])
-
-            # get holdings
-            holdings = json_data['props']['pageProps']['mf']['holdings']
-
-            hold_df = pd.DataFrame(holdings)
-
-                    
-            # set session state
-            st.session_state["scheme_holdings"] = hold_df
             
-            left_co, cent_co,last_co = st.columns(3)
-            with cent_co:
-        
-                # make donut chart
-                donut2 = donut_scheme_holding(hold_df)
-                st.altair_chart(donut2)
-
 
 def portfolio_plots(consol_holdings):
 
@@ -383,24 +349,18 @@ def portfolio_plots(consol_holdings):
 
     with c1:
             
-            left_co, cent_co,last_co = st.columns(3)
-            with cent_co:
-                st.subheader("Scheme Type Distribution")
+            st.subheader("Scheme Type Distribution")
 
-                # display donut chart
-                donut = donut_portfolio(consol_holdings)
-                st.altair_chart(donut)
+            # display donut chart
+            donut = donut_portfolio(consol_holdings)
+            st.altair_chart(donut,use_container_width=True)
                 
            
     with c2:
            
-            left_co, cent_co,last_co = st.columns(3)
-            with cent_co:
-                st.subheader("Value by scheme type")
-
-                # display donut chart
-                donut = donut_value(consol_holdings)
-                st.altair_chart(donut)
+            # display donut chart
+            donut = donut_value(consol_holdings)
+            st.altair_chart(donut,use_container_width=True)
 
 
 
@@ -408,13 +368,11 @@ def portfolio_plots(consol_holdings):
     c1, c2 = st.columns(spec=[0.52, 0.48])
 
     with c1:
-            left_co, cent_co,last_co = st.columns(3)
-            with cent_co:
-                # make the heading at center 
-                st.subheader("Portfolio Holdings by Sector")
-                # make donut chart
-                donut2 = donut_sector_value(consol_holdings)
-                st.altair_chart(donut2)
+            # make the heading at center 
+            st.subheader("Portfolio Holdings by Sector")
+            # make donut chart
+            donut2 = donut_sector_value(consol_holdings)
+            st.altair_chart(donut2,use_container_width=True)
             
         
     with c2:
@@ -431,14 +389,11 @@ def portfolio_plots(consol_holdings):
             # rename the columns
             top_companies.rename(columns={'index': 'Rank', 'company_name': 'Company', 'percent_value': '% of Total'}, inplace=True)
 
-            left_co, cent_co,last_co = st.columns(3)
-            with cent_co:
-                    
-                # create a table in steamlit
-                st.subheader("Top 10 Companies by Value")
+            # create a table in steamlit
+            st.subheader("Top 10 Companies by Value")
 
-                # convert the dataframe to a table
-                st.dataframe(top_companies,hide_index=True)
+            # convert the dataframe to a table
+            st.dataframe(top_companies,hide_index=True)
 
 
 def nav_scheme_sector(portfolio):
@@ -457,7 +412,35 @@ def nav_scheme_sector(portfolio):
         # select scheme for analysis
         scheme_name = st.selectbox("Select Scheme", portfolio["Scheme Name"].unique())
 
-        scheme_sector_donut(scheme_name,portfolio)
+        # get url from scheme_name
+        scheme_url = portfolio.loc[portfolio["Scheme Name"] == scheme_name,"Scheme URL"].values[0]
+
+        url = requests.get(scheme_url)
+        # scrape url
+        soup = BeautifulSoup(url.text, 'html.parser')
+
+        # get scheme name
+        scheme_name = soup.find_all('title')[0].get_text().split('-')[0].strip()
+
+        # Find the script tag with the specific ID
+        script_tag = soup.find('script', id='__NEXT_DATA__')
+
+        # Extract the JSON data from the script tag content
+        json_data = json.loads(script_tag.contents[0])
+
+        # get holdings
+        holdings = json_data['props']['pageProps']['mf']['holdings']
+
+        hold_df = pd.DataFrame(holdings)
+
+                    
+        # set session state
+        st.session_state["scheme_holdings"] = hold_df
+            
+        # make donut chart
+        donut2 = donut_scheme_holding(hold_df)
+        st.altair_chart(donut2,use_container_width=True)
+
 
 
 
@@ -483,16 +466,12 @@ def nav_scheme_compare(portfolio):
                 if st.button("Compare"):
                     chart = compare_schemes(portfolio,selected_schemes[0],selected_schemes[1])
 
-                    st.altair_chart(chart)
+                    st.altair_chart(chart,use_container_width=True)
            
 
 def nav_portfolio(portfolio):
     
     if not portfolio.empty:
-
-            # Display the portfolio dataframe
-            if st.sidebar.button("Analyze"):
-            
             
                 if portfolio.shape[0] >=1:
                     # get consolidated holdings
@@ -522,39 +501,32 @@ def nav_portfolio(portfolio):
                 # make plots for a portfolio
                 portfolio_plots(st.session_state.consol_holdings)
                 
+def nav_about():
+    intro_markdown = read_markdown_file("README.md")
+    st.markdown(intro_markdown, unsafe_allow_html=True)
 
 
 def main():
 
 
-    pages = [ "Scheme Distribution", "Scheme Compare", "Portfolio"]
-
-    # Render the navigation bar
-    navigation = st_navbar(pages, styles=styles_nav)
-
-
-
-    # Read the content of the CSS file
-    with open("./styles/sidebar.css", "r") as css_file:
-        sidebar_css = css_file.read()
-
-
-    # st.title("Mutual Fund Portfolio Analysis")
-
-   
+    pages = ["About","Scheme Distribution", "Scheme Compare", "Portfolio Analysis"]
+    
+    
     # Add entry to the list of inputs
     with st.sidebar:
-        # add logo at the center
-        
-        # Display CSS in Streamlit
-        st.markdown(f'<style>{sidebar_css}</style>', unsafe_allow_html=True)
 
+        # set App Name
+        st.markdown("<h1 style='text-align: center;'>Mutual Fund Analyzer</h1>", unsafe_allow_html=True)
+        #add logo at the center
+        
         left_co, cent_co,last_co = st.columns(3)
         with cent_co:
             st.image('./images/logo.jpeg', use_column_width=True)
         
 
-        st.markdown("<h1 style='text-align: center;'>Portfolio Dashboard</h1>", unsafe_allow_html=True)
+        st.markdown('---')
+
+        st.markdown("<h2 style='text-align: center;'>Portfolio Dashboard</h2>", unsafe_allow_html=True)
 
 
 
@@ -587,7 +559,8 @@ def main():
                     # units = row['Units']
                     add_portfolio_entry(scheme_url, units)
 
-    
+
+        st.markdown('---')
             
         # Display entries with checkboxes in the sidebar
         st.markdown("<h1 style='text-align: center;'>Schemes Entries</h1>", unsafe_allow_html=True)
@@ -595,15 +568,22 @@ def main():
          # check which checkboxes are checked
         portfolio = check_ckbox()
 
-    if navigation == 'Scheme Distribution':
-            nav_scheme_sector(portfolio)
-    elif navigation == 'Scheme Compare':
-            nav_scheme_compare(portfolio)
-    elif navigation == 'Portfolio':
-            nav_portfolio(portfolio)
-    
+    # Render the navigation bar
+    navigation = st_navbar(pages, styles=styles_nav,selected='About')
+
+
 
     
+    if navigation == 'About':
+        nav_about()
+    elif navigation == 'Scheme Distribution':
+        nav_scheme_sector(portfolio)
+    elif navigation == 'Scheme Compare':
+        nav_scheme_compare(portfolio)
+    elif navigation == 'Portfolio':
+        nav_portfolio(portfolio)
+    
+
         
         
 

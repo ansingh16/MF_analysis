@@ -1,11 +1,30 @@
 import streamlit as st
 from streamlit_navigation_bar import st_navbar
+import altair as alt
+import pandas as pd
 
 st.set_page_config(initial_sidebar_state="expanded")
 
 
 def function1():
     st.write("Function 1 executed!")
+    st.subheader("Sector Holdings of Scheme")
+    # plot an altair chart
+    
+    # Create some sample data
+    data = {'Scheme Name': ['Scheme A', 'Scheme B', 'Scheme C'],
+            'Sector Name': ['Sector A', 'Sector B', 'Sector C'],
+            'Value': [100, 200, 300]}
+    
+    df = pd.DataFrame(data)
+
+    # Create an Altair chart
+    chart = alt.Chart(df).mark_bar().encode(
+        x='Sector Name',
+        y='Value',
+        color='Scheme Name'
+    )
+    st.altair_chart(chart,use_container_width=True)
 
 def function2():
     st.write("Function 2 executed!")
