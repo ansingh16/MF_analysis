@@ -32,7 +32,7 @@ if 'update' not in st.session_state:
 
 styles_nav = {
         "nav": {
-             "width": "80%",
+             "width": "70%",
             "background-color": "teal",
             "float": "right",
             "overflow": "hidden",
