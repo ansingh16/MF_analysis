@@ -8,6 +8,7 @@ import multiprocessing.pool as Pool
 import re
 from streamlit_navigation_bar import st_navbar
 from pathlib import Path
+from mftool import MFTool
 
 def read_markdown_file(markdown_file):
     return Path(markdown_file).read_text()
@@ -504,10 +505,20 @@ def nav_about():
     st.markdown(intro_markdown, unsafe_allow_html=True)
 
 
+def nav_scheme_suggest():
+     
+    # read the data from the csv file
+    all_schemes = pd.read_csv('all_schemes.csv')
+
+    # display multiselect widget
+    
+         
+
+
 def main():
 
 
-    pages = ["About","Scheme Distribution", "Scheme Compare", "Portfolio Analysis"]
+    pages = ["About","Scheme Distribution", "Scheme Compare", "Portfolio Analysis","Scheme Suggest"]
     
     
     # Add entry to the list of inputs
@@ -580,6 +591,8 @@ def main():
         nav_scheme_compare(portfolio)
     elif navigation == 'Portfolio':
         nav_portfolio(portfolio)
+    elif navigation == 'Scheme Suggest':
+        nav_scheme_suggest()
     
 
         
