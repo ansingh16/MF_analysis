@@ -8,7 +8,6 @@ import multiprocessing.pool as Pool
 import re
 from streamlit_navigation_bar import st_navbar
 from pathlib import Path
-from mftool import MFTool
 
 def read_markdown_file(markdown_file):
     return Path(markdown_file).read_text()
@@ -30,6 +29,8 @@ if 'selected_schemes' not in st.session_state:
     st.session_state.selected_schemes = None       
 if 'update' not in st.session_state:
     st.session_state.selected_schemes = None
+if 'ticker_data' not in st.session_state:
+    st.session_state.ticker_data = None
 
 styles_nav = {
         "nav": {
@@ -212,6 +213,15 @@ def get_top_companies():
     # group by company_name and calculate the sum of the value and sort in descending order
     top_companies = consol_df.groupby('Company')['Percentage by Value'].sum().reset_index().sort_values(by='Percentage by Value', ascending=False)
 
+
+    # get all tickers and check the companies
+    for company in top_companies['Company'].head(10):
+        
+        if company.upper() in st.session_state.ticker_data['name'].values:
+            ticker = st.session_state.ticker_data.loc[st.session_state.ticker_data['name'] == company.upper(),'tradingsymbol'].values[0]
+            print(ticker)
+       
+
     return top_companies.head(10)
 
 
@@ -357,6 +367,7 @@ def portfolio_plots(consol_holdings):
            
     with c2:
            
+            st.subheader("Scheme Value Distribution")
             # display donut chart
             donut = donut_value(consol_holdings)
             st.altair_chart(donut,use_container_width=True)
@@ -517,6 +528,11 @@ def nav_scheme_suggest():
 
 def main():
 
+    # all tickers 
+        
+    all_tickers = pd.read_csv('all_tickers_india.csv',usecols=['instrument_key','tradingsymbol','name'])
+
+    st.session_state.ticker_data = all_tickers
 
     pages = ["About","Scheme Distribution", "Scheme Compare", "Portfolio Analysis","Scheme Suggest"]
     
@@ -589,7 +605,7 @@ def main():
         nav_scheme_sector(portfolio)
     elif navigation == 'Scheme Compare':
         nav_scheme_compare(portfolio)
-    elif navigation == 'Portfolio':
+    elif navigation == 'Portfolio Analysis':
         nav_portfolio(portfolio)
     elif navigation == 'Scheme Suggest':
         nav_scheme_suggest()
