@@ -2,6 +2,8 @@
 
 <p style='font-size: 18px;'>Welcome to Mutual Fund Analyzer!</p> 
 
+**Note:** This uses web scraping from the Groww platform and according to terms and conditions of the platform given [here](https://groww.in/terms-and-conditions) the data can only be used for personal use. This toot is only available for personal use and should not be used for commerial use that may breach the terms and conditions of the platform concerned.
+
 <p style="font-size: 18px;">With different mutual funds available it is difficult to design a strategy for the investments and in which funds to invest your money. A well balanced portfolio has balanced exposure to different assets, different companies of varied market caps and has investments across various sectors. Balancing the portfolio prevents the capital against ups and downs of the stock market. </p>
 
 

@@ -6,4 +6,3 @@ altair
 mftool
 streamlit_navigation_bar
 yahooquery
-investpy

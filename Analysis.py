@@ -8,6 +8,7 @@ import multiprocessing.pool as Pool
 import re
 from streamlit_navigation_bar import st_navbar
 from pathlib import Path
+from yahooquery import Ticker
 
 def read_markdown_file(markdown_file):
     return Path(markdown_file).read_text()
@@ -197,7 +198,7 @@ def compare_schemes(portfolio, scheme1, scheme2):
     
 
 
-
+@st.cache_data
 def get_top_companies():
     """
     Function to get top companies
@@ -213,16 +214,19 @@ def get_top_companies():
     # group by company_name and calculate the sum of the value and sort in descending order
     top_companies = consol_df.groupby('Company')['Percentage by Value'].sum().reset_index().sort_values(by='Percentage by Value', ascending=False)
 
-
+    comapny_details = []
     # get all tickers and check the companies
     for company in top_companies['Company'].head(10):
         
         if company.upper() in st.session_state.ticker_data['name'].values:
             ticker = st.session_state.ticker_data.loc[st.session_state.ticker_data['name'] == company.upper(),'tradingsymbol'].values[0]
-            print(ticker)
-       
+            ticker_yf = Ticker(ticker+'.NS') 
+            fin_data_dict = ticker_yf.financial_data
 
-    return top_companies.head(10)
+            comapny_details.append(fin_data_dict[ticker+'.NS'])
+
+    comapny_details = pd.DataFrame(comapny_details)
+    return top_companies.head(10), comapny_details
 
 
 @st.cache_data
@@ -389,7 +393,7 @@ def portfolio_plots(consol_holdings):
 
             # from consolidated holdings get the top companies
             # get top 10 companies by value
-            top_companies = get_top_companies()
+            top_companies, comapny_details = get_top_companies()
             # reset index
             top_companies.reset_index(drop=True, inplace=True)
 
@@ -404,7 +408,9 @@ def portfolio_plots(consol_holdings):
 
             # convert the dataframe to a table
             st.dataframe(top_companies,hide_index=True)
-
+    
+    st.markdown("---")
+    st.dataframe(comapny_details)
 
 def nav_scheme_sector(portfolio):
      
