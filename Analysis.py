@@ -9,6 +9,7 @@ import re
 from streamlit_navigation_bar import st_navbar
 from pathlib import Path
 from yahooquery import Ticker
+import mstarpy
 
 def read_markdown_file(markdown_file):
     return Path(markdown_file).read_text()
@@ -561,16 +562,32 @@ def main():
 
 
 
-        # Sidebar input fields
-        scheme_url = st.text_input("Enter Groww Scheme URL:")
-        units = st.text_input("Enter Units:")
+        # # Sidebar input fields
+        # scheme_url = st.text_input("Enter Groww Scheme URL:")
+        # units = st.text_input("Enter Units:")
     
         
 
-        if st.button("Add", key="add"):
-                if scheme_url and units:
-                    # Call the function to add the entry
-                    add_portfolio_entry(scheme_url, units)
+        # if st.button("Add", key="add"):
+        #         if scheme_url and units:
+        #             # Call the function to add the entry
+        #             add_portfolio_entry(scheme_url, units)
+        response = mstarpy.search_funds(term="Quant Momentum", field=["Name",'fundShareClassId'], country="in", pageSize=100, currency="INR")
+        response_df = pd.DataFrame(response)
+        
+
+        st.data_editor(
+        response_df,
+        column_config={
+            "favorite": st.column_config.CheckboxColumn(
+                "Your favorite?",
+                help="Select your **favorite** widgets",
+                default=False,
+            )
+        },
+        disabled=["widgets"],
+        hide_index=True,
+)
         
 
         st.header('OR')
