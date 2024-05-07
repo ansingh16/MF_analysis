@@ -34,6 +34,9 @@ if 'update' not in st.session_state:
 if 'ticker_data' not in st.session_state:
     st.session_state.ticker_data = None
 
+if 'add_fund' not in st.session_state:
+    st.session_state.add_fund = None
+
 styles_nav = {
         "nav": {
              "width": "70%",
@@ -306,28 +309,7 @@ def analyze_uploaded_file(uploaded_file):
         return df
 
 
-def add_portfolio_entry(scheme_url, units):
-    # Read URL to get scheme name, NAV, category, and subcategory
-    url_text = requests.get(scheme_url)
-    soup = BeautifulSoup(url_text.text, 'html.parser')
-    
-    # Get the scheme name
-    scheme_name = soup.find_all('title')[0].get_text().split('-')[0].strip()
-    
-    # Find the script tag with the specific ID
-    script_tag = soup.find('script', id='__NEXT_DATA__')
-    
-    # Extract the JSON data from the script tag content
-    json_data = json.loads(script_tag.contents[0])
-    
-    # Get NAV
-    td_tag = soup.find_all('td',class_="fd12Cell contentPrimary bodyLargeHeavy")[0]
-    value = td_tag.get_text(strip=True)
-    NAV = float(re.search(r'₹([\d.]+)', value).group(1))
-    
-    # Get category and subcategory
-    category = json_data['props']['pageProps']['mf']['category']
-    subcategory = json_data['props']['pageProps']['mf']['sub_category']
+def add_portfolio_entry(scheme_name, units):
     
     # Add entry to the list of inputs
     st.session_state.portfolio.append({"Scheme Name": scheme_name, "Units": float(units), 
@@ -531,9 +513,20 @@ def nav_scheme_suggest():
     # display multiselect widget
     
          
+def checkbox_container(data):
+    for i in data.Name:
+        st.checkbox(i, key='dynamic_checkbox_' + i)
+
+def get_selected_checkboxes():
+    return [i.replace('dynamic_checkbox_','') for i in st.session_state.keys() if i.startswith('dynamic_checkbox_') and st.session_state[i]]
 
 
 def main():
+    
+    # response = mstarpy.search_funds(term="", field=["Name",'fundShareClassId'], country="in", pageSize=100000, currency="INR")
+    # df = pd.DataFrame(response)
+
+    # df.to_parquet('mstar_funds.parquet')
 
     # all tickers 
         
@@ -560,34 +553,25 @@ def main():
 
         st.markdown("<h2 style='text-align: center;'>Portfolio Dashboard</h2>", unsafe_allow_html=True)
 
+        # get search phrase:
+        name2search = st.text_input("Enter Fund Name to search:")
 
-
-        # # Sidebar input fields
-        # scheme_url = st.text_input("Enter Groww Scheme URL:")
-        # units = st.text_input("Enter Units:")
-    
+        if st.button("Search", key="search"):
+            response = mstarpy.search_funds(term=f"{name2search}", field=["Name",'fundShareClassId'], country="in", pageSize=100, currency="INR")
+            response_df = pd.DataFrame(response)
         
+            checkbox_container(response_df)
 
-        # if st.button("Add", key="add"):
+        get_selected_checkboxes()
+        add_portfolio_entry(scheme_url, 1)
+
         #         if scheme_url and units:
         #             # Call the function to add the entry
         #             add_portfolio_entry(scheme_url, units)
-        response = mstarpy.search_funds(term="Quant Momentum", field=["Name",'fundShareClassId'], country="in", pageSize=100, currency="INR")
-        response_df = pd.DataFrame(response)
         
-
-        st.data_editor(
-        response_df,
-        column_config={
-            "favorite": st.column_config.CheckboxColumn(
-                "Your favorite?",
-                help="Select your **favorite** widgets",
-                default=False,
-            )
-        },
-        disabled=["widgets"],
-        hide_index=True,
-)
+        
+                
+        
         
 
         st.header('OR')
