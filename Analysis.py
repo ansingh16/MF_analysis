@@ -312,9 +312,7 @@ def analyze_uploaded_file(uploaded_file):
 def add_portfolio_entry(scheme_name, units):
     
     # Add entry to the list of inputs
-    st.session_state.portfolio.append({"Scheme Name": scheme_name, "Units": float(units), 
-                                       "NAV": NAV, "Scheme Category Name": category + " - " + subcategory, 
-                                       "Scheme URL": scheme_url, 'Checkbox': True})
+    st.session_state.portfolio.append({"Scheme Name": scheme_name, "Units": float(units), "NAV": NAV, "Scheme Category Name": category + " - " + subcategory, "Scheme URL": scheme_url, 'Checkbox': True})
 
 def check_ckbox():
 
@@ -513,13 +511,6 @@ def nav_scheme_suggest():
     # display multiselect widget
     
          
-def checkbox_container(data):
-    for i in data.Name:
-        st.checkbox(i, key='dynamic_checkbox_' + i)
-
-def get_selected_checkboxes():
-    return [i.replace('dynamic_checkbox_','') for i in st.session_state.keys() if i.startswith('dynamic_checkbox_') and st.session_state[i]]
-
 
 def main():
     
@@ -553,17 +544,11 @@ def main():
 
         st.markdown("<h2 style='text-align: center;'>Portfolio Dashboard</h2>", unsafe_allow_html=True)
 
-        # get search phrase:
-        name2search = st.text_input("Enter Fund Name to search:")
+        # read mstar mf names
+        df_names = pd.read_parquet('mstar_funds.parquet')
 
-        if st.button("Search", key="search"):
-            response = mstarpy.search_funds(term=f"{name2search}", field=["Name",'fundShareClassId'], country="in", pageSize=100, currency="INR")
-            response_df = pd.DataFrame(response)
-        
-            checkbox_container(response_df)
+        selected_mutual_funds = st.sidebar.select("Select Mutual Funds:", df_names['Name'])
 
-        get_selected_checkboxes()
-        add_portfolio_entry(scheme_url, 1)
 
         #         if scheme_url and units:
         #             # Call the function to add the entry
@@ -574,22 +559,22 @@ def main():
         
         
 
-        st.header('OR')
+        # st.header('OR')
 
-        st.header("Upload CSV File")
-        st.info("Please upload a CSV file with the following columns: 'Scheme URL', 'Units'")
+        # st.header("Upload CSV File")
+        # st.info("Please upload a CSV file with the following columns: 'Scheme URL', 'Units'")
 
-        uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+        # uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
-        if st.button("Add file",key="add_csv"):
-            if uploaded_file is not None:
-                # Read the uploaded file into a pandas DataFrame
-                df = pd.read_csv(uploaded_file)
+        # if st.button("Add file",key="add_csv"):
+        #     if uploaded_file is not None:
+        #         # Read the uploaded file into a pandas DataFrame
+        #         df = pd.read_csv(uploaded_file)
                 
-                for scheme_url, units in zip(df['Scheme URL'], df['Units']):
-                    # scheme_url = row['Scheme URL']
-                    # units = row['Units']
-                    add_portfolio_entry(scheme_url, units)
+        #         for scheme_url, units in zip(df['Scheme URL'], df['Units']):
+        #             # scheme_url = row['Scheme URL']
+        #             # units = row['Units']
+        #             add_portfolio_entry(scheme_url, units)
 
 
         st.markdown('---')

@@ -1,32 +1,17 @@
 import streamlit as st
-import mstarpy
 import pandas as pd
 
-if 'dummy_data' not in st.session_state.keys():
-    response = mstarpy.search_funds(term="Quant Momentum", field=["Name",'fundShareClassId'], country="in", pageSize=100, currency="INR")
-    df = pd.DataFrame(response)
-    print(df)
-    st.session_state['dummy_data'] = df
-else:
-    dummy_data = st.session_state['dummy_data']
+# Sample DataFrame containing mutual fund names
+df_names = pd.read_parquet('mstar_funds.parquet')
 
-def checkbox_container(data):
-    cols = st.columns(10)
-    if cols[1].button('Select All'):
-        for i in data.Name:
-            st.session_state['dynamic_checkbox_' + i] = True
-        st.experimental_rerun()
-    if cols[2].button('UnSelect All'):
-        for i in data.Name:
-            st.session_state['dynamic_checkbox_' + i] = False
-        st.experimental_rerun()
-    for i in data.Name:
-        st.checkbox(i, key='dynamic_checkbox_' + i)
+names = df_names['Name'].to_list()
+names.extend([' '])
+# read mstar mf names
 
-def get_selected_checkboxes():
-    return [i.replace('dynamic_checkbox_','') for i in st.session_state.keys() if i.startswith('dynamic_checkbox_') and st.session_state[i]]
+selected_mutual_funds = st.sidebar.selectbox("Select Mutual Funds:", names, index=len(names) - 1)
 
+col1, col2 = st.sidebar.columns([0.8, 0.2])
 
-checkbox_container(st.session_state.dummy_data)
-st.write('You selected:')
-st.write(get_selected_checkboxes())
+include_mf = col1.checkbox(label=f"{selected_mutual_funds}", key=1, value=True)
+include_units = col2.text_input(label="Units", key=2, value=1)
+

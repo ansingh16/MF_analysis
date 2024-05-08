@@ -7,3 +7,4 @@ mftool
 streamlit_navigation_bar
 yahooquery
 mstarpy
+streamlit-searchbox
