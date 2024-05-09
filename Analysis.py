@@ -10,6 +10,7 @@ from streamlit_navigation_bar import st_navbar
 from pathlib import Path
 from yahooquery import Ticker
 import mstarpy
+import datetime
 
 def read_markdown_file(markdown_file):
     return Path(markdown_file).read_text()
@@ -309,10 +310,11 @@ def analyze_uploaded_file(uploaded_file):
         return df
 
 
-def add_portfolio_entry(scheme_name, units):
+def add_portfolio_entry(scheme_name, units,category,NAV):
     
+        
     # Add entry to the list of inputs
-    st.session_state.portfolio.append({"Scheme Name": scheme_name, "Units": float(units), "NAV": NAV, "Scheme Category Name": category + " - " + subcategory, "Scheme URL": scheme_url, 'Checkbox': True})
+    st.session_state.portfolio.append({"Scheme Name": scheme_name, "Units": float(units), "NAV": NAV, "Scheme Category Name": category, 'Checkbox': True})
 
 def check_ckbox():
 
@@ -544,37 +546,60 @@ def main():
 
         st.markdown("<h2 style='text-align: center;'>Portfolio Dashboard</h2>", unsafe_allow_html=True)
 
-        # read mstar mf names
+        # Sample DataFrame containing mutual fund names
         df_names = pd.read_parquet('mstar_funds.parquet')
 
-        selected_mutual_funds = st.sidebar.select("Select Mutual Funds:", df_names['Name'])
+        names = df_names['Name'].to_list()
+        names.extend([' '])
+        # read mstar mf names
+
+        selected_mutual_funds = st.sidebar.selectbox("Select Mutual Funds:", names, index=len(names) - 1)
+
+        if selected_mutual_funds != ' ':
+
+            
+
+            include_units = st.text_input(label="Units", key=2, value=1)
+            if st.button("Add", key="add"):
+                # add screener
+                fund_data = mstarpy.Funds(term=selected_mutual_funds, country="in")
+
+                # today
+                today = datetime.date.today()
+                # yesterday
+                yesterday = today - datetime.timedelta(days=2)
+
+                #get historical data
+                history = fund_data.nav(start_date=yesterday,end_date=today, frequency="daily")
+
+                # if history is not empty
+                if len(history) > 0:
+                    # with spinner:
+                    df_history = pd.DataFrame(history)
+                    nav=df_history['nav'].iloc[-1]
+                    category=fund_data.sector()['assetType']
+                    name=fund_data.name
+                    
+                    add_portfolio_entry(name, include_units,category,nav)
+      
 
 
-        #         if scheme_url and units:
-        #             # Call the function to add the entry
-        #             add_portfolio_entry(scheme_url, units)
-        
-        
+        st.header('OR')
+
+        st.header("Upload CSV File")
+        st.info("Please upload a CSV file with the following columns: 'Scheme URL', 'Units'")
+
+        uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+
+        if st.button("Add file",key="add_csv"):
+            if uploaded_file is not None:
+                # Read the uploaded file into a pandas DataFrame
+                df = pd.read_csv(uploaded_file)
                 
-        
-        
-
-        # st.header('OR')
-
-        # st.header("Upload CSV File")
-        # st.info("Please upload a CSV file with the following columns: 'Scheme URL', 'Units'")
-
-        # uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
-
-        # if st.button("Add file",key="add_csv"):
-        #     if uploaded_file is not None:
-        #         # Read the uploaded file into a pandas DataFrame
-        #         df = pd.read_csv(uploaded_file)
-                
-        #         for scheme_url, units in zip(df['Scheme URL'], df['Units']):
-        #             # scheme_url = row['Scheme URL']
-        #             # units = row['Units']
-        #             add_portfolio_entry(scheme_url, units)
+                for scheme_url, units in zip(df['Scheme URL'], df['Units']):
+                    # scheme_url = row['Scheme URL']
+                    # units = row['Units']
+                    add_portfolio_entry(scheme_url, units)
 
 
         st.markdown('---')
