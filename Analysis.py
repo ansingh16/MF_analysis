@@ -120,7 +120,7 @@ def donut_sector_value(consol_df):
 def donut_scheme_holding(holdings_df):
     
     # change name of column to Sector
-    holdings_df.rename(columns={'sector_name':'Sector'}, inplace=True)
+    holdings_df.rename(columns={'secondarySectorName':'Sector'}, inplace=True)
     # Calculate category counts
     category_counts = holdings_df['Sector'].value_counts().reset_index()
     category_counts.columns = ['Sector', 'count']
@@ -131,27 +131,18 @@ def donut_scheme_holding(holdings_df):
         )
     return donut
 
+
+
 @st.cache_data
 def get_scheme_hold(portfolio,scheme_name):
     
-    scheme_url = portfolio.loc[portfolio["Scheme Name"] == scheme_name,"Scheme URL"].values[0]
-
-    url = requests.get(scheme_url)
-    # scrape url
-    soup = BeautifulSoup(url.text, 'html.parser')
-    
-    # Find the script tag with the specific ID
-    script_tag = soup.find('script', id='__NEXT_DATA__')
-
-    # Extract the JSON data from the script tag content
-    json_data = json.loads(script_tag.contents[0])
+    fund_df = portfolio.loc[portfolio["Scheme Name"] == scheme_name,"fund_data"].values[0]
 
     # get holdings
-    holdings = json_data['props']['pageProps']['mf']['holdings']
+    holdings = fund_df.holdings(holdingType="all")
 
-    hold_df = pd.DataFrame(holdings)
 
-    return hold_df
+    return holdings
 
 @st.cache_data
 def compare_schemes(portfolio, scheme1, scheme2):
@@ -163,8 +154,8 @@ def compare_schemes(portfolio, scheme1, scheme2):
     portfolio1['Scheme Name'] = scheme1
     portfolio2['Scheme Name'] = scheme2
 
-    portfolio1.rename(columns={'sector_name':'Sector', 'company_name':'Company', 'corpus_per':'Percent Contribution'}, inplace=True)
-    portfolio2.rename(columns={'sector_name':'Sector', 'company_name':'Company', 'corpus_per':'Percent Contribution'}, inplace=True)
+    portfolio1.rename(columns={'secondarySectorName':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
+    portfolio2.rename(columns={'secondarySectorName':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
 
     # print(portfolio1)
     # print(portfolio2)
@@ -310,11 +301,11 @@ def analyze_uploaded_file(uploaded_file):
         return df
 
 
-def add_portfolio_entry(scheme_name, units,category,NAV):
-    
-        
+def add_portfolio_entry(fund_data, units):
+    # get name
+    name=fund_data.name
     # Add entry to the list of inputs
-    st.session_state.portfolio.append({"Scheme Name": scheme_name, "Units": float(units), "NAV": NAV, "Scheme Category Name": category, 'Checkbox': True})
+    st.session_state.portfolio.append({"Scheme Name": name, "Units": float(units), "fund_data": fund_data, 'Checkbox': True})
 
 def check_ckbox():
 
@@ -411,33 +402,17 @@ def nav_scheme_sector(portfolio):
         # select scheme for analysis
         scheme_name = st.selectbox("Select Scheme", portfolio["Scheme Name"].unique())
 
-        # get url from scheme_name
-        scheme_url = portfolio.loc[portfolio["Scheme Name"] == scheme_name,"Scheme URL"].values[0]
-
-        url = requests.get(scheme_url)
-        # scrape url
-        soup = BeautifulSoup(url.text, 'html.parser')
-
-        # get scheme name
-        scheme_name = soup.find_all('title')[0].get_text().split('-')[0].strip()
-
-        # Find the script tag with the specific ID
-        script_tag = soup.find('script', id='__NEXT_DATA__')
-
-        # Extract the JSON data from the script tag content
-        json_data = json.loads(script_tag.contents[0])
+        fund_df = portfolio.loc[portfolio["Scheme Name"] == scheme_name,"fund_data"].values[0]
 
         # get holdings
-        holdings = json_data['props']['pageProps']['mf']['holdings']
-
-        hold_df = pd.DataFrame(holdings)
+        holdings = fund_df.holdings(holdingType="all")
 
                     
         # set session state
-        st.session_state["scheme_holdings"] = hold_df
+        st.session_state["scheme_holdings"] = holdings
             
         # make donut chart
-        donut2 = donut_scheme_holding(hold_df)
+        donut2 = donut_scheme_holding(holdings)
         st.altair_chart(donut2,use_container_width=True)
 
 
@@ -576,11 +551,9 @@ def main():
                 if len(history) > 0:
                     # with spinner:
                     df_history = pd.DataFrame(history)
-                    nav=df_history['nav'].iloc[-1]
-                    category=fund_data.sector()['assetType']
-                    name=fund_data.name
                     
-                    add_portfolio_entry(name, include_units,category,nav)
+                    
+                    add_portfolio_entry(fund_data, include_units)
       
 
 
