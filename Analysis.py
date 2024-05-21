@@ -94,6 +94,7 @@ def donut_value(mf_portfolio):
         
     return donut
 
+
 @st.cache_data
 def donut_sector_value(consol_df):
     consol_df = st.session_state["consol_holdings"]
@@ -115,6 +116,7 @@ def donut_sector_value(consol_df):
         
         
     return donut
+
 
 @st.cache_data
 def donut_scheme_holding(holdings_df):
@@ -143,6 +145,8 @@ def get_scheme_hold(portfolio,scheme_name):
 
 
     return holdings
+
+
 
 @st.cache_data
 def compare_schemes(portfolio, scheme1, scheme2):
@@ -191,8 +195,6 @@ def compare_schemes(portfolio, scheme1, scheme2):
     return chart
 
 
-    
-
 
 @st.cache_data
 def get_top_companies():
@@ -225,72 +227,34 @@ def get_top_companies():
     return top_companies.head(10), comapny_details
 
 
-@st.cache_data
-def get_consolidated_holdings(mf_url,mf_unit):
-    """
-    Function to get consolidated holdings from all MF portfolio
-    """
- 
-    url = requests.get(mf_url)
-    # scrape url
-    soup = BeautifulSoup(url.text, 'html.parser')
+# @st.cache_data
+# def get_consolidated_holdings(scheme_name,mf_unit):
+#     """
+#     Function to get consolidated holdings from all MF portfolio
+#     """
+#     hold_df = get_scheme_hold(st.session_state.portfolio,scheme_name)
+    
+#     # get other sectors not in the list
+#     # Calculate the sum of contrib_per
+#     total_contrib_per = hold_df['weighting'].sum()
 
-    # get scheme name
-    scheme_name = soup.find_all('title')[0].get_text().split('-')[0].strip()
-
-    # Find the script tag with the specific ID
-    script_tag = soup.find('script', id='__NEXT_DATA__')
-
-    # Extract the JSON data from the script tag content
-    json_data = json.loads(script_tag.contents[0])
-
-    # get holdings
-    holdings = json_data['props']['pageProps']['mf']['holdings']
-
-    # get NAV
-
-    td_tag = soup.find_all('td',class_="fd12Cell contentPrimary bodyLargeHeavy")[0]
-
-    # Extract the text content from the <td> tag
-    value = td_tag.get_text(strip=True)
-
-    # get NAV
-    NAV= re.search(r'₹([\d.]+)', value).group(1)
-
-    # get category
-    category = json_data['props']['pageProps']['mf']['category']
-    # get sub-category
-    subcategory = json_data['props']['pageProps']['mf']['sub_category']
-
-    # get pandas
-    hold_df = pd.DataFrame(holdings)
-    hold_df['Scheme Name'] = scheme_name
-    hold_df['NAV'] = float(NAV)
-    hold_df['Units'] = float(mf_unit)
-    hold_df['Scheme Category'] = category + " - " + subcategory
-    # hold_df['Scheme Sub-Category'] = subcategory
-
-    # get other sectors not in the list
-    # Calculate the sum of contrib_per
-    total_contrib_per = hold_df['corpus_per'].sum()
-
-    # Check if the sum is less than 1
-    if total_contrib_per < 1:
-        # Calculate the contribution percentage for 'Other'
-        other_contrib_per = 1 - total_contrib_per
+#     # Check if the sum is less than 1
+#     if total_contrib_per < 100:
+#         # Calculate the contribution percentage for 'Other'
+#         other_contrib_per = 1 - total_contrib_per
         
-        # Append a new row for 'Other'
-        hold_df = hold_df.append({'company_name': 'Other', 'contrib_per': other_contrib_per}, ignore_index=True)
+#         # Append a new row for 'Other'
+#         hold_df = hold_df.append({'securityName': 'Other', 'weighting': other_contrib_per}, ignore_index=True)
 
     
-    # hold_df = hold_df[['company_name','sector_name','corpus_per']]
+#     # # hold_df = hold_df[['company_name','sector_name','corpus_per']]
 
-    if not hold_df.empty:
-        hold_df = hold_df[['Scheme Name','Scheme Category','company_name','sector_name','corpus_per','NAV','Units']]
+#     # if not hold_df.empty:
+#     #     hold_df = hold_df[['Scheme Name','Scheme Category','company_name','sector_name','corpus_per','NAV','Units']]
 
-        hold_df.columns = ['Scheme Name','Scheme Category', 'Company', 'Sector', 'Percent Contribution', 'NAV', 'Units']
+#     #     hold_df.columns = ['Scheme Name','Scheme Category', 'Company', 'Sector', 'Percent Contribution', 'NAV', 'Units']
     
-    return hold_df
+#     return hold_df
 
 
 # Function to load data
@@ -304,8 +268,12 @@ def analyze_uploaded_file(uploaded_file):
 def add_portfolio_entry(fund_data, units):
     # get name
     name=fund_data.name
+
+    # Fund Category Name
+    category_name = fund_data.allocationMap()['categoryName']
+
     # Add entry to the list of inputs
-    st.session_state.portfolio.append({"Scheme Name": name, "Units": float(units), "fund_data": fund_data, 'Checkbox': True})
+    st.session_state.portfolio.append({"Scheme Name": name, "Units": float(units), "fund_data": fund_data, "Scheme Category": category_name, 'Checkbox': True})
 
 def check_ckbox():
 
@@ -449,25 +417,28 @@ def nav_portfolio(portfolio):
             
                 if portfolio.shape[0] >=1:
                     # get consolidated holdings
-                    all_url = portfolio['Scheme URL'].unique()
+                    all_scheme_names = portfolio['Scheme Name'].unique()
                     all_units = portfolio['Units'].unique()
                         
-                    with st.spinner("Calculating Consolidated Holdings..."):
-                        consol_holdings_list = []             
-                        for url, units in zip(all_url, all_units):
+                    consol_holdings_list = []             
+                    for scheme_name, units in zip(all_scheme_names, all_units):
                                 # get consolidated holdings
 
                                 # use starmap to run in parallel on all urls
-                                holdings = get_consolidated_holdings(url,units)
+                                # holdings = get_consolidated_holdings(scheme_name,units)
+
+                                holdings = get_scheme_hold(portfolio,scheme_name)
                                 
+                                holdings['Units'] = units
+                                holdings['Scheme Category'] = portfolio.loc[portfolio["Scheme Name"] == scheme_name,"Scheme Category"].values[0]
                                 # append list
                                 consol_holdings_list.append(holdings)
 
-                        # concat the list of dataframes into a single dataframe
-                        consol_holdings = pd.concat(consol_holdings_list, ignore_index=True)
+                    # concat the list of dataframes into a single dataframe
+                    consol_holdings = pd.concat(consol_holdings_list, ignore_index=True)
 
-                        # consolidated holdings
-                        st.session_state["consol_holdings"] = consol_holdings
+                    # consolidated holdings
+                    st.session_state["consol_holdings"] = consol_holdings
 
 
                 st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
@@ -550,7 +521,7 @@ def main():
                 # if history is not empty
                 if len(history) > 0:
                     # with spinner:
-                    df_history = pd.DataFrame(history)
+                    # df_history = pd.DataFrame(history)
                     
                     
                     add_portfolio_entry(fund_data, include_units)
