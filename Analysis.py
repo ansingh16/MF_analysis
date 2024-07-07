@@ -61,6 +61,8 @@ styles_nav = {
 
 @st.cache_data
 def donut_portfolio(consol_holdings):
+
+    print(consol_holdings['Scheme Category'])
     # Calculate category counts
     category_counts = consol_holdings['Scheme Category'].value_counts().reset_index()
     category_counts.columns = ['Scheme Category', 'count']
@@ -74,7 +76,7 @@ def donut_portfolio(consol_holdings):
 @st.cache_data
 def donut_value(mf_portfolio):
     
-        
+    print(mf_portfolio['Units'], mf_portfolio['NAV'])
     # Calculate current value in schemes
     scheme_value = mf_portfolio['Units'] * mf_portfolio['NAV']
     # get total value
@@ -103,6 +105,8 @@ def donut_sector_value(consol_df):
     # get total value
     total_value = all_scheme_value.sum()
     consol_df['Fraction Value'] = (all_scheme_value / total_value)*100
+
+    consol_df.rename(columns={'secondarySectorName':'Sector'}, inplace=True)
 
     # Group by Scheme Category Name and calculate the sum of the Fraction Value
     category_value = consol_df.groupby('Sector')['Fraction Value'].sum().reset_index()
@@ -203,6 +207,8 @@ def get_top_companies():
     """
     consol_df = st.session_state["consol_holdings"]
 
+    consol_df.rename(columns={'secondarySectorName':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
+
     # get value invested in a company
     consol_df['company_value']  = consol_df['Units'] * consol_df['NAV']*consol_df['Percent Contribution']
     
@@ -227,35 +233,6 @@ def get_top_companies():
     return top_companies.head(10), comapny_details
 
 
-# @st.cache_data
-# def get_consolidated_holdings(scheme_name,mf_unit):
-#     """
-#     Function to get consolidated holdings from all MF portfolio
-#     """
-#     hold_df = get_scheme_hold(st.session_state.portfolio,scheme_name)
-    
-#     # get other sectors not in the list
-#     # Calculate the sum of contrib_per
-#     total_contrib_per = hold_df['weighting'].sum()
-
-#     # Check if the sum is less than 1
-#     if total_contrib_per < 100:
-#         # Calculate the contribution percentage for 'Other'
-#         other_contrib_per = 1 - total_contrib_per
-        
-#         # Append a new row for 'Other'
-#         hold_df = hold_df.append({'securityName': 'Other', 'weighting': other_contrib_per}, ignore_index=True)
-
-    
-#     # # hold_df = hold_df[['company_name','sector_name','corpus_per']]
-
-#     # if not hold_df.empty:
-#     #     hold_df = hold_df[['Scheme Name','Scheme Category','company_name','sector_name','corpus_per','NAV','Units']]
-
-#     #     hold_df.columns = ['Scheme Name','Scheme Category', 'Company', 'Sector', 'Percent Contribution', 'NAV', 'Units']
-    
-#     return hold_df
-
 
 # Function to load data
 def analyze_uploaded_file(uploaded_file):
@@ -265,7 +242,7 @@ def analyze_uploaded_file(uploaded_file):
         return df
 
 
-def add_portfolio_entry(fund_data, units):
+def add_portfolio_entry(fund_data, units,nav):
     # get name
     name=fund_data.name
 
@@ -273,7 +250,10 @@ def add_portfolio_entry(fund_data, units):
     category_name = fund_data.allocationMap()['categoryName']
 
     # Add entry to the list of inputs
-    st.session_state.portfolio.append({"Scheme Name": name, "Units": float(units), "fund_data": fund_data, "Scheme Category": category_name, 'Checkbox': True})
+    if len(st.session_state.portfolio) > 1:
+        st.session_state.portfolio = pd.concat([st.session_state.portfolio, pd.DataFrame({"Scheme Name": name, "Units": float(units), "NAV": float(nav), "fund_data": fund_data, "Scheme Category": category_name, 'Checkbox': True}, index=[st.session_state.portfolio.index[-1] + 1])])
+    else:
+        st.session_state.portfolio = pd.DataFrame({"Scheme Name": name, "Units": float(units), "NAV": float(nav), "fund_data": fund_data, "Scheme Category": category_name, 'Checkbox': True})
 
 def check_ckbox():
 
@@ -299,6 +279,9 @@ def check_ckbox():
             
 
 def portfolio_plots(consol_holdings):
+
+    # print("Here")
+    # print(consol_holdings)
 
     c1, c2 = st.columns(2)
 
@@ -419,9 +402,10 @@ def nav_portfolio(portfolio):
                     # get consolidated holdings
                     all_scheme_names = portfolio['Scheme Name'].unique()
                     all_units = portfolio['Units'].unique()
+                    all_nav = portfolio['NAV'].unique()
                         
                     consol_holdings_list = []             
-                    for scheme_name, units in zip(all_scheme_names, all_units):
+                    for scheme_name, units, nav in zip(all_scheme_names, all_units, all_nav):
                                 # get consolidated holdings
 
                                 # use starmap to run in parallel on all urls
@@ -429,19 +413,21 @@ def nav_portfolio(portfolio):
 
                                 holdings = get_scheme_hold(portfolio,scheme_name)
                                 
-                                holdings['Units'] = units
+                                holdings['Units'] = float(units)
+                                holdings['NAV'] = nav
                                 holdings['Scheme Category'] = portfolio.loc[portfolio["Scheme Name"] == scheme_name,"Scheme Category"].values[0]
                                 # append list
                                 consol_holdings_list.append(holdings)
 
-                    # concat the list of dataframes into a single dataframe
-                    consol_holdings = pd.concat(consol_holdings_list, ignore_index=True)
-
-                    # consolidated holdings
-                    st.session_state["consol_holdings"] = consol_holdings
+                # concat the list of dataframes into a single dataframe
+                consol_holdings = pd.concat(consol_holdings_list,ignore_index=True)
+                # consolidated holdings
+                st.session_state["consol_holdings"] = consol_holdings
 
 
                 st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
+
+                print(st.session_state.portfolio)
 
                 # make plots for a portfolio
                 portfolio_plots(st.session_state.consol_holdings)
@@ -517,14 +503,16 @@ def main():
 
                 #get historical data
                 history = fund_data.nav(start_date=yesterday,end_date=today, frequency="daily")
-
+                
+                
                 # if history is not empty
                 if len(history) > 0:
                     # with spinner:
-                    # df_history = pd.DataFrame(history)
+                    df_history = pd.DataFrame(history)
+                    nav = df_history['nav'].iloc[-1]
+
                     
-                    
-                    add_portfolio_entry(fund_data, include_units)
+                    add_portfolio_entry(fund_data, include_units,nav)
       
 
 
@@ -552,7 +540,7 @@ def main():
         st.markdown("<h1 style='text-align: center;'>Schemes Entries</h1>", unsafe_allow_html=True)
         
          # check which checkboxes are checked
-        portfolio = check_ckbox()
+        st.session_state.portfolio = check_ckbox()
 
     # Render the navigation bar
     navigation = st_navbar(pages, styles=styles_nav,selected='About')
@@ -563,11 +551,11 @@ def main():
     if navigation == 'About':
         nav_about()
     elif navigation == 'Scheme Distribution':
-        nav_scheme_sector(portfolio)
+        nav_scheme_sector(st.session_state.portfolio)
     elif navigation == 'Scheme Compare':
-        nav_scheme_compare(portfolio)
+        nav_scheme_compare(st.session_state.portfolio)
     elif navigation == 'Portfolio Analysis':
-        nav_portfolio(portfolio)
+        nav_portfolio(st.session_state.portfolio)
     elif navigation == 'Scheme Suggest':
         nav_scheme_suggest()
     
