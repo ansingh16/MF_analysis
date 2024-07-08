@@ -249,19 +249,26 @@ def add_portfolio_entry(fund_data, units,nav):
     # Fund Category Name
     category_name = fund_data.allocationMap()['categoryName']
 
+    # check if session_satate.portfolio is empty
     # Add entry to the list of inputs
-    if len(st.session_state.portfolio) > 1:
-        st.session_state.portfolio = pd.concat([st.session_state.portfolio, pd.DataFrame({"Scheme Name": name, "Units": float(units), "NAV": float(nav), "fund_data": fund_data, "Scheme Category": category_name, 'Checkbox': True}, index=[st.session_state.portfolio.index[-1] + 1])])
+    if isinstance(st.session_state.portfolio, list) :
+        st.session_state.portfolio = pd.DataFrame([{"Scheme Name": name, "Units": float(units), "NAV": float(nav), "fund_data": fund_data, "Scheme Category": category_name, 'Checkbox': True}])
     else:
-        st.session_state.portfolio = pd.DataFrame({"Scheme Name": name, "Units": float(units), "NAV": float(nav), "fund_data": fund_data, "Scheme Category": category_name, 'Checkbox': True})
+        # now it is dataframe concat the dataframe
+        st.session_state.portfolio.loc[len(st.session_state.portfolio.index)] = [name,float(units),float(nav),fund_data, category_name, True]
+
+    print('Here')
+    print(st.session_state.portfolio)
 
 def check_ckbox():
 
-    for i, input_data in enumerate(st.session_state.portfolio):
+    input_data = st.session_state.portfolio
+    for i in range(st.session_state.portfolio.shape[0]):
         checkbox_key = f"checkbox_{i}"
         units_key = f"units_{i}"
 
-        scheme_name = input_data['Scheme Name']
+        
+        scheme_name = input_data['Scheme Name'].iloc[i]
         
         # Place checkbox and text input side by side using columns layout
         col1, col2 = st.sidebar.columns([1, 1])
@@ -427,8 +434,7 @@ def nav_portfolio(portfolio):
 
                 st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
 
-                print(st.session_state.portfolio)
-
+                
                 # make plots for a portfolio
                 portfolio_plots(st.session_state.consol_holdings)
                 
