@@ -21,7 +21,7 @@ st.set_page_config(initial_sidebar_state="expanded")
  # Initialize session state variables if not already initialized
 
 if 'portfolio' not in st.session_state:
-    st.session_state.portfolio = []
+    st.session_state.portfolio = pd.DataFrame()
 if 'select_portfolio' not in st.session_state:
     st.session_state.select_portfolio = None
 if 'consol_holdings' not in st.session_state:
@@ -62,7 +62,7 @@ styles_nav = {
 @st.cache_data
 def donut_portfolio(consol_holdings):
 
-    print(consol_holdings['Scheme Category'])
+    # print(consol_holdings['Scheme Category'])
     # Calculate category counts
     category_counts = consol_holdings['Scheme Category'].value_counts().reset_index()
     category_counts.columns = ['Scheme Category', 'count']
@@ -76,7 +76,7 @@ def donut_portfolio(consol_holdings):
 @st.cache_data
 def donut_value(mf_portfolio):
     
-    print(mf_portfolio['Units'], mf_portfolio['NAV'])
+    # print(mf_portfolio['Units'], mf_portfolio['NAV'])
     # Calculate current value in schemes
     scheme_value = mf_portfolio['Units'] * mf_portfolio['NAV']
     # get total value
@@ -251,44 +251,53 @@ def add_portfolio_entry(fund_data, units,nav):
 
     # check if session_satate.portfolio is empty
     # Add entry to the list of inputs
-    if isinstance(st.session_state.portfolio, list) :
+    if st.session_state.portfolio.empty:
         st.session_state.portfolio = pd.DataFrame([{"Scheme Name": name, "Units": float(units), "NAV": float(nav), "fund_data": fund_data, "Scheme Category": category_name, 'Checkbox': True}])
     else:
         # now it is dataframe concat the dataframe
         st.session_state.portfolio.loc[len(st.session_state.portfolio.index)] = [name,float(units),float(nav),fund_data, category_name, True]
 
-    print('Here')
-    print(st.session_state.portfolio)
 
 def check_ckbox():
 
-    input_data = st.session_state.portfolio
-    for i in range(st.session_state.portfolio.shape[0]):
-        checkbox_key = f"checkbox_{i}"
-        units_key = f"units_{i}"
+    
+    # if not st.session_state.portfolio:
+    #     pass
+    # else:
 
+        # print(st.session_state.portfolio)
+
+        input_data = st.session_state.portfolio
         
-        scheme_name = input_data['Scheme Name'].iloc[i]
+        for i in range(st.session_state.portfolio.shape[0]):
+            checkbox_key = f"checkbox_{i}"
+            units_key = f"units_{i}"
+
+            
+            scheme_name = input_data['Scheme Name'].iloc[i]
+            
+            # Place checkbox and text input side by side using columns layout
+            col1, col2 = st.sidebar.columns([1, 1])
+
+            # print("H ereeeeeeeeeeeeee",f"name: {scheme_name},checkbox: {input_data['Checkbox'].values[i]},units: {input_data['Units'].values[i]}")
+
+            input_data['Checkbox'] = col1.checkbox(label=f"{scheme_name}", key=checkbox_key, value=input_data['Checkbox'].values[0])
+            input_data['Units'] = col2.text_input(label="Units", key=units_key, value=input_data['Units'].values[0])
         
-        # Place checkbox and text input side by side using columns layout
-        col1, col2 = st.sidebar.columns([1, 1])
+        if st.session_state.portfolio.shape[0]>0:
 
-        input_data['Checkbox'] = col1.checkbox(label=f"{scheme_name}", key=checkbox_key, value=input_data['Checkbox'])
-        input_data['Units'] = col2.text_input(label="Units", key=units_key, value=input_data['Units'])
-    
-    
-    # Filter out unchecked entries and update the DataFrame
-    portfolio = pd.DataFrame([input_data for input_data in st.session_state.portfolio if input_data['Checkbox']])
+            # Filter out unchecked entries and update the DataFrame
+            input_data = input_data.loc[input_data['Checkbox'] == True]
 
-    
-    return portfolio
+        return input_data
+             
 
             
 
 def portfolio_plots(consol_holdings):
 
-    # print("Here")
-    # print(consol_holdings)
+    print("Here")
+    print(consol_holdings)
 
     c1, c2 = st.columns(2)
 
@@ -405,7 +414,7 @@ def nav_portfolio(portfolio):
     
     if not portfolio.empty:
             
-                if portfolio.shape[0] >=1:
+                if portfolio.shape[0] >=0:
                     # get consolidated holdings
                     all_scheme_names = portfolio['Scheme Name'].unique()
                     all_units = portfolio['Units'].unique()
@@ -420,6 +429,8 @@ def nav_portfolio(portfolio):
 
                                 holdings = get_scheme_hold(portfolio,scheme_name)
                                 
+                                print(f"Processing {scheme_name}...holdings: {holdings.shape[0]}")
+
                                 holdings['Units'] = float(units)
                                 holdings['NAV'] = nav
                                 holdings['Scheme Category'] = portfolio.loc[portfolio["Scheme Name"] == scheme_name,"Scheme Category"].values[0]
@@ -433,8 +444,8 @@ def nav_portfolio(portfolio):
 
 
                 st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
-
                 
+               
                 # make plots for a portfolio
                 portfolio_plots(st.session_state.consol_holdings)
                 
