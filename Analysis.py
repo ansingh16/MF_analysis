@@ -106,7 +106,7 @@ def donut_sector_value(consol_df):
     total_value = all_scheme_value.sum()
     consol_df['Fraction Value'] = (all_scheme_value / total_value)*100
 
-    consol_df.rename(columns={'secondarySectorName':'Sector'}, inplace=True)
+    consol_df.rename(columns={'holdingType':'Sector'}, inplace=True)
 
     # Group by Scheme Category Name and calculate the sum of the Fraction Value
     category_value = consol_df.groupby('Sector')['Fraction Value'].sum().reset_index()
@@ -126,7 +126,7 @@ def donut_sector_value(consol_df):
 def donut_scheme_holding(holdings_df):
     
     # change name of column to Sector
-    holdings_df.rename(columns={'secondarySectorName':'Sector'}, inplace=True)
+    holdings_df.rename(columns={'holdingType':'Sector'}, inplace=True)
     # Calculate category counts
     category_counts = holdings_df['Sector'].value_counts().reset_index()
     category_counts.columns = ['Sector', 'count']
@@ -162,8 +162,8 @@ def compare_schemes(portfolio, scheme1, scheme2):
     portfolio1['Scheme Name'] = scheme1
     portfolio2['Scheme Name'] = scheme2
 
-    portfolio1.rename(columns={'secondarySectorName':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
-    portfolio2.rename(columns={'secondarySectorName':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
+    portfolio1.rename(columns={'holdingType':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
+    portfolio2.rename(columns={'holdingType':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
 
     # print(portfolio1)
     # print(portfolio2)
@@ -207,7 +207,7 @@ def get_top_companies():
     """
     consol_df = st.session_state["consol_holdings"]
 
-    consol_df.rename(columns={'secondarySectorName':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
+    consol_df.rename(columns={'holdingType':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
 
     # get value invested in a company
     consol_df['company_value']  = consol_df['Units'] * consol_df['NAV']*consol_df['Percent Contribution']
@@ -413,12 +413,13 @@ def nav_scheme_compare(portfolio):
 def nav_portfolio(portfolio):
     
     if not portfolio.empty:
-            
+
+                print("Portfolio shape",portfolio.shape)
                 if portfolio.shape[0] >=0:
                     # get consolidated holdings
-                    all_scheme_names = portfolio['Scheme Name'].unique()
-                    all_units = portfolio['Units'].unique()
-                    all_nav = portfolio['NAV'].unique()
+                    all_scheme_names = portfolio['Scheme Name'].to_list()
+                    all_units = portfolio['Units'].to_list()
+                    all_nav = portfolio['NAV'].to_list()
                         
                     consol_holdings_list = []             
                     for scheme_name, units, nav in zip(all_scheme_names, all_units, all_nav):
@@ -437,6 +438,7 @@ def nav_portfolio(portfolio):
                                 # append list
                                 consol_holdings_list.append(holdings)
 
+                    print("Consolidated Holdings",consol_holdings_list)
                 # concat the list of dataframes into a single dataframe
                 consol_holdings = pd.concat(consol_holdings_list,ignore_index=True)
                 # consolidated holdings
