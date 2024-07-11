@@ -1,20 +1,10 @@
-Scheme Name,ISIN,Scheme Category Name,Units,NAV,Scheme URL
-quant Momentum Fund - Regular Plan IDCW - Reinvestment,INF966L01CY6,Equity - Diversified,3000.0,13.73,https://groww.in/mutual-funds/quant-momentum-fund-direct-growth
-HDFC Transportation and Logistics Fund Regular Growth,INF179KC1GX4,Equity - Sector - Auto,1500.0,13.49,https://groww.in/mutual-funds/hdfc-transportation-and-logistics-fund-direct-growth
-quant Momentum Fund - Regular Plan Growth - Growth,INF966L01CW0,Equity - Diversified,7075.965,13.73,https://groww.in/mutual-funds/quant-momentum-fund-direct-growth
-Axis India Manufacturing Fund Regular Growth,INF846K013S0,Equity - Diversified,3000.0,11.75,https://groww.in/mutual-funds/axis-india-manufacturing-fund-direct-growth
-ICICI Prudential Large & Mid Cap Fund - Growth,INF109K01431,Equity - Diversified,220.345,924.99,https://groww.in/mutual-funds/icici-prudential-top-100-fund-direct-growth
-Quant Commodities Fund-Regular Plan Growth-Growth,INF966L01DC0,Equity - Diversified,3000.0,11.8,https://groww.in/mutual-funds/quant-commodities-fund-direct-growth
-KOTAK HEALTHCARE FUND -REGULAR PLAN-GROWTH,INF174KA1PW4,Equity - Sector - Pharma,3000.0,11.48,https://groww.in/mutual-funds/kotak-healthcare-fund-direct-growth
-HDFC MID-CAP OPPORTUNITIES FUND - GROWTH OPTION,INF179K01CR2,Equity - Diversified,28.783,173.67,https://groww.in/mutual-funds/hdfc-mid-cap-opportunities-fund-direct-growth
-HDFC Technology Fund Regular Growth,INF179KC1HF9,Equity - Sector - Technology,1500.0,11.37,https://groww.in/mutual-funds/hdfc-technology-fund-direct-growth
-ICICI Prudential Bluechip Fund - Growth,INF109K01BL4,Equity - Diversified,1632.331,105.4,https://groww.in/mutual-funds/icici-prudential-focused-bluechip-equity-fund-direct-growth
-FRANKLIN INDIA FLEXI CAP FUND - GROWTH,INF090I01239,Equity - Diversified,184.312,172.21,https://groww.in/mutual-funds/franklin-india-flexi-cap-fund-direct-growth
-ICICI PRUDENTIAL MULTICAP FUND - GROWTH,INF109K01613,Equity - Diversified,311.51,752.11,https://groww.in/mutual-funds/icici-prudential-multicap-fund-direct-growth
-Nippon India Multi Cap Fund - Growth Plan Growth Option,INF204K01489,Equity - Diversified,769.599,270.02,https://groww.in/mutual-funds/nippon-india-multi-cap-fund-direct-growth
-Groww Nifty Total Market Index Fund - Regular Plan - Growth - Growth,INF666M01HJ0,Index Funds,8821.111,12.12,https://groww.in/mutual-funds/groww-nifty-total-market-index-fund-direct-growth
-Quant Active Fund-Regular Plan-Growth,INF966L01234,Equity - Diversified,143.093,679.87,https://groww.in/mutual-funds/quant-active-fund-direct-growth
-SBI Large & Midcap Fund Regular Growth,INF200K01305,Equity - Diversified,106.908,558.4,https://groww.in/mutual-funds/sbi-magnum-multiplier-fund-direct-growth
-quant Manufacturing Fund - Regular Plan Growth - Growth,INF966L01CN9,Equity - Diversified,3113.91,14.51,https://groww.in/mutual-funds/quant-manufacturing-fund-direct-growth
-KOTAK EMERGING EQUITY FUND,INF174K01DS9,Equity - Diversified,1160.266,118.9,https://groww.in/mutual-funds/kotak-emerging-equity-scheme-direct-growth
-DSP Gold ETF Fund of Fund - Regular - Growth,INF740KA1TH2,Fund of Funds - Gold,3000.0,11.18,https://groww.in/mutual-funds/dsp-gold-etf-fof-direct-growth
+Units,Scheme Name
+3000,quant momentum fund direct growth
+1500,hdfc transportation and logistics fund direct growth
+7075.965,quant momentum fund direct growth
+3000,axis india manufacturing fund direct growth
+220.345,icici prudential top 100 fund direct growth
+3000,quant commodities fund direct growth
+3000,kotak healthcare fund direct growth
+28.783,hdfc mid cap opportunities fund direct growth
+1500,hdfc technology fund direct growth

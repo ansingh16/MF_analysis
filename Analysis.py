@@ -1,16 +1,38 @@
 import streamlit as st
 import pandas as pd
-import requests
-from bs4 import BeautifulSoup
-import json
 import altair as alt
-import multiprocessing.pool as Pool
-import re
 from streamlit_navigation_bar import st_navbar
 from pathlib import Path
 from yahooquery import Ticker
 import mstarpy
 import datetime
+from fuzzywuzzy import process
+from multiprocessing import Pool
+
+# Function to find the closest match
+def find_closest_scheme(search_name, scheme_names):
+    search_name_lower = search_name.lower()
+    choices = [name.lower() for name in scheme_names]
+    closest_match = process.extractOne(search_name_lower, choices)
+    return closest_match
+
+# Function to process each scheme in parallel
+def process_scheme(search_scheme, df,units):
+    closest_scheme = find_closest_scheme(search_scheme, df['Scheme Name'])
+    closest_scheme_name = closest_scheme[0]
+    closest_scheme_score = closest_scheme[1]
+
+    # Find the row in the DataFrame that matches the closest scheme name
+    matching_row = df[df['Scheme Name'].str.lower() == closest_scheme_name]
+
+    # Display the results
+    return {
+        "Search Scheme": search_scheme,
+        "Units": units,
+        "Closest Scheme": closest_scheme_name,
+        "Score": closest_scheme_score,
+        "Matching Row": matching_row.to_dict(orient='records')
+    }
 
 def read_markdown_file(markdown_file):
     return Path(markdown_file).read_text()
@@ -542,15 +564,49 @@ def main():
 
         uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
+        print(uploaded_file)
+        
         if st.button("Add file",key="add_csv"):
+
             if uploaded_file is not None:
                 # Read the uploaded file into a pandas DataFrame
                 df = pd.read_csv(uploaded_file)
                 
-                for scheme_url, units in zip(df['Scheme URL'], df['Units']):
-                    # scheme_url = row['Scheme URL']
-                    # units = row['Units']
-                    add_portfolio_entry(scheme_url, units)
+                
+                # Use multiprocessing Pool to process schemes in parallel
+                with Pool() as pool:
+                    results = pool.starmap(process_scheme, [(search_scheme, df_names,units) for search_scheme,units in zip(df['Scheme Name'],df['Units'])])
+
+
+                # Display results
+                for result in results:
+                    print(f"Search Scheme: {result['Search Scheme']}")
+                    print(f"Closest Scheme: {result['Closest Scheme']} (Score: {result['Score']})")
+                    print("Matching Row:")
+                    print(pd.DataFrame(result['Matching Row']))
+
+
+                    # add screener
+                    fund_data = mstarpy.Funds(term=result['Closest Scheme'], country="in")
+
+                    # today
+                    today = datetime.date.today()
+                    # yesterday
+                    yesterday = today - datetime.timedelta(days=2)
+
+                    #get historical data
+                    history = fund_data.nav(start_date=yesterday,end_date=today, frequency="daily")
+                    
+                    
+                    # if history is not empty
+                    if len(history) > 0:
+                        # with spinner:
+                        df_history = pd.DataFrame(history)
+                        nav = df_history['nav'].iloc[-1]
+
+                        
+                        add_portfolio_entry(fund_data, include_units,nav)
+        
 
 
         st.markdown('---')
