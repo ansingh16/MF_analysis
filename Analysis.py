@@ -17,14 +17,25 @@ def find_closest_scheme(search_name, scheme_names):
     return closest_match
 
 # Function to process each scheme in parallel
-def process_scheme(search_scheme, df,units):
-    closest_scheme = find_closest_scheme(search_scheme, df['Scheme Name'])
+def process_scheme(search_scheme, df_names,units):
+
+    print("Scheme in process",search_scheme)
+
+    closest_scheme = find_closest_scheme(search_scheme, df_names['Scheme Name'])
     closest_scheme_name = closest_scheme[0]
     closest_scheme_score = closest_scheme[1]
 
-    # Find the row in the DataFrame that matches the closest scheme name
-    matching_row = df[df['Scheme Name'].str.lower() == closest_scheme_name]
 
+    print("Closest scheme",closest_scheme_name)
+
+    # Find the row in the DataFrame that matches the closest scheme name
+    matching_row = df_names[df_names['Scheme Name'].str.lower() == closest_scheme_name]
+
+    print({"Search Scheme": search_scheme,
+        "Units": units,
+        "Closest Scheme": closest_scheme_name,
+        "Score": closest_scheme_score,
+        "Matching Row": matching_row.to_dict(orient='records')})
     # Display the results
     return {
         "Search Scheme": search_scheme,
@@ -522,7 +533,9 @@ def main():
         # Sample DataFrame containing mutual fund names
         df_names = pd.read_parquet('mstar_funds.parquet')
 
-        names = df_names['Name'].to_list()
+        print(df_names)
+        
+        names = df_names['Scheme Name'].to_list()
         names.extend([' '])
         # read mstar mf names
 
@@ -569,45 +582,45 @@ def main():
         if st.button("Add file",key="add_csv"):
 
             if uploaded_file is not None:
-                # Read the uploaded file into a pandas DataFrame
-                df = pd.read_csv(uploaded_file)
-                
-                
-                # Use multiprocessing Pool to process schemes in parallel
-                with Pool() as pool:
-                    results = pool.starmap(process_scheme, [(search_scheme, df_names,units) for search_scheme,units in zip(df['Scheme Name'],df['Units'])])
 
-
-                # Display results
-                for result in results:
-                    print(f"Search Scheme: {result['Search Scheme']}")
-                    print(f"Closest Scheme: {result['Closest Scheme']} (Score: {result['Score']})")
-                    print("Matching Row:")
-                    print(pd.DataFrame(result['Matching Row']))
-
-
-                    # add screener
-                    fund_data = mstarpy.Funds(term=result['Closest Scheme'], country="in")
-
-                    # today
-                    today = datetime.date.today()
-                    # yesterday
-                    yesterday = today - datetime.timedelta(days=2)
-
-                    #get historical data
-                    history = fund_data.nav(start_date=yesterday,end_date=today, frequency="daily")
+                try:
+                    # Read the uploaded file into a pandas DataFrame
+                    schemes = pd.read_csv(uploaded_file)
                     
-                    
-                    # if history is not empty
-                    if len(history) > 0:
-                        # with spinner:
-                        df_history = pd.DataFrame(history)
-                        nav = df_history['nav'].iloc[-1]
+                    # print(schemes)
 
+                    for search_scheme,units in zip(schemes['Scheme Name'],schemes['Units']):
+                        result = process_scheme(search_scheme, df_names,units)
                         
-                        add_portfolio_entry(fund_data, include_units,nav)
-        
+                        print(f"Search Scheme: {result['Search Scheme']}")
+                        print(f"Closest Scheme: {result['Closest Scheme']} (Score: {result['Score']})")
+                        print("Matching Row:")
+                        print(pd.DataFrame(result['Matching Row']))
 
+
+                        # add screener
+                        fund_data = mstarpy.Funds(term=result['Closest Scheme'], country="in")
+
+                        # today
+                        today = datetime.date.today()
+                        # yesterday
+                        yesterday = today - datetime.timedelta(days=2)
+
+                        #get historical data
+                        history = fund_data.nav(start_date=yesterday,end_date=today, frequency="daily")
+                        
+                        
+                        # if history is not empty
+                        if len(history) > 0:
+                            # with spinner:
+                            df_history = pd.DataFrame(history)
+                            nav = df_history['nav'].iloc[-1]
+
+                            
+                            add_portfolio_entry(fund_data, include_units,nav)
+            
+                except Exception as e:
+                        st.error(f"Error reading the file: {e}")
 
         st.markdown('---')
             
