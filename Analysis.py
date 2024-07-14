@@ -6,44 +6,8 @@ from pathlib import Path
 from yahooquery import Ticker
 import mstarpy
 import datetime
-from fuzzywuzzy import process
 from multiprocessing import Pool
 
-# Function to find the closest match
-def find_closest_scheme(search_name, scheme_names):
-    search_name_lower = search_name.lower()
-    choices = [name.lower() for name in scheme_names]
-    closest_match = process.extractOne(search_name_lower, choices)
-    return closest_match
-
-# Function to process each scheme in parallel
-def process_scheme(search_scheme, df_names,units):
-
-    print("Scheme in process",search_scheme)
-
-    closest_scheme = find_closest_scheme(search_scheme, df_names['Scheme Name'])
-    closest_scheme_name = closest_scheme[0]
-    closest_scheme_score = closest_scheme[1]
-
-
-    print("Closest scheme",closest_scheme_name)
-
-    # Find the row in the DataFrame that matches the closest scheme name
-    matching_row = df_names[df_names['Scheme Name'].str.lower() == closest_scheme_name]
-
-    print({"Search Scheme": search_scheme,
-        "Units": units,
-        "Closest Scheme": closest_scheme_name,
-        "Score": closest_scheme_score,
-        "Matching Row": matching_row.to_dict(orient='records')})
-    # Display the results
-    return {
-        "Search Scheme": search_scheme,
-        "Units": units,
-        "Closest Scheme": closest_scheme_name,
-        "Score": closest_scheme_score,
-        "Matching Row": matching_row.to_dict(orient='records')
-    }
 
 def read_markdown_file(markdown_file):
     return Path(markdown_file).read_text()
@@ -276,12 +240,17 @@ def analyze_uploaded_file(uploaded_file):
 
 
 def add_portfolio_entry(fund_data, units,nav):
+
+    
     # get name
     name=fund_data.name
+
+    print("adding portfolio entry",name,units,nav,st.session_state.portfolio)
 
     # Fund Category Name
     category_name = fund_data.allocationMap()['categoryName']
 
+    
     # check if session_satate.portfolio is empty
     # Add entry to the list of inputs
     if st.session_state.portfolio.empty:
@@ -290,18 +259,11 @@ def add_portfolio_entry(fund_data, units,nav):
         # now it is dataframe concat the dataframe
         st.session_state.portfolio.loc[len(st.session_state.portfolio.index)] = [name,float(units),float(nav),fund_data, category_name, True]
 
-
 def check_ckbox():
-
-    
-    # if not st.session_state.portfolio:
-    #     pass
-    # else:
-
-        # print(st.session_state.portfolio)
 
         input_data = st.session_state.portfolio
         
+
         for i in range(st.session_state.portfolio.shape[0]):
             checkbox_key = f"checkbox_{i}"
             units_key = f"units_{i}"
@@ -533,9 +495,9 @@ def main():
         # Sample DataFrame containing mutual fund names
         df_names = pd.read_parquet('mstar_funds.parquet')
 
-        print(df_names)
+
         
-        names = df_names['Scheme Name'].to_list()
+        names = df_names['Name'].to_list()
         names.extend([' '])
         # read mstar mf names
 
@@ -577,50 +539,52 @@ def main():
 
         uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
-        print(uploaded_file)
+        
         
         if st.button("Add file",key="add_csv"):
 
             if uploaded_file is not None:
 
-                try:
+                
                     # Read the uploaded file into a pandas DataFrame
-                    schemes = pd.read_csv(uploaded_file)
+                    input_portfolio = pd.read_csv(uploaded_file)
                     
                     # print(schemes)
 
-                    for search_scheme,units in zip(schemes['Scheme Name'],schemes['Units']):
-                        result = process_scheme(search_scheme, df_names,units)
+                    for search_scheme,units in zip(input_portfolio['Scheme Name'],input_portfolio['Units']):
                         
-                        print(f"Search Scheme: {result['Search Scheme']}")
-                        print(f"Closest Scheme: {result['Closest Scheme']} (Score: {result['Score']})")
-                        print("Matching Row:")
-                        print(pd.DataFrame(result['Matching Row']))
+                       
+                            response = mstarpy.search_funds(term=search_scheme,field=["Name", "fundShareClassId", "SectorName"],country="in",pageSize=20)
 
+                            # print(search_scheme,response[0]['Name'])
 
-                        # add screener
-                        fund_data = mstarpy.Funds(term=result['Closest Scheme'], country="in")
+                            # if response is not empty dictionary
+                            if response != {}:
 
-                        # today
-                        today = datetime.date.today()
-                        # yesterday
-                        yesterday = today - datetime.timedelta(days=2)
+                                result = response[0]
 
-                        #get historical data
-                        history = fund_data.nav(start_date=yesterday,end_date=today, frequency="daily")
+                                # add screener
+                                fund_data = mstarpy.Funds(term=result['Name'], country="in")
+
+                                # today
+                                today = datetime.date.today()
+                                # yesterday
+                                yesterday = today - datetime.timedelta(days=2)
+
+                                #get historical data
+                                history = fund_data.nav(start_date=yesterday,end_date=today, frequency="daily")
+                                
+                                
+                                # if history is not empty
+                                if len(history) > 0:
+                                    # with spinner:
+                                    df_history = pd.DataFrame(history)
+                                    nav = df_history['nav'].iloc[-1]
+
+                                    add_portfolio_entry(fund_data, units,nav)
                         
-                        
-                        # if history is not empty
-                        if len(history) > 0:
-                            # with spinner:
-                            df_history = pd.DataFrame(history)
-                            nav = df_history['nav'].iloc[-1]
-
-                            
-                            add_portfolio_entry(fund_data, include_units,nav)
-            
-                except Exception as e:
-                        st.error(f"Error reading the file: {e}")
+                    
+                    
 
         st.markdown('---')
             
