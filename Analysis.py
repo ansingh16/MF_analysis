@@ -97,13 +97,18 @@ def donut_value(mf_portfolio):
 @st.cache_data
 def donut_sector_value(consol_df):
     consol_df = st.session_state["consol_holdings"]
+
+    # print(consol_df.columns)
+
     # Calculate current value in schemes
     all_scheme_value = consol_df['Units'] * consol_df['NAV']
     # get total value
     total_value = all_scheme_value.sum()
     consol_df['Fraction Value'] = (all_scheme_value / total_value)*100
 
-    consol_df.rename(columns={'holdingType':'Sector'}, inplace=True)
+    # consol_df['Sector'] = 
+
+    consol_df.rename(columns={'sector':'Sector'}, inplace=True)
 
     # Group by Scheme Category Name and calculate the sum of the Fraction Value
     category_value = consol_df.groupby('Sector')['Fraction Value'].sum().reset_index()
@@ -274,9 +279,11 @@ def check_ckbox():
             # Place checkbox and text input side by side using columns layout
             col1, col2 = st.sidebar.columns([1, 1])
 
-            # print("H ereeeeeeeeeeeeee",f"name: {scheme_name},checkbox: {input_data['Checkbox'].values[i]},units: {input_data['Units'].values[i]}")
-
+           
+            # set checkbox
             input_data['Checkbox'] = col1.checkbox(label=f"{scheme_name}", key=checkbox_key, value=input_data['Checkbox'].values[0])
+            
+            # set units
             input_data['Units'] = col2.text_input(label="Units", key=units_key, value=input_data['Units'].values[0])
         
         if st.session_state.portfolio.shape[0]>0:
@@ -291,8 +298,8 @@ def check_ckbox():
 
 def portfolio_plots(consol_holdings):
 
-    print("Here")
-    print(consol_holdings)
+    # print("Here")
+    # print(consol_holdings)
 
     c1, c2 = st.columns(2)
 
@@ -492,44 +499,53 @@ def main():
 
         st.markdown("<h2 style='text-align: center;'>Portfolio Dashboard</h2>", unsafe_allow_html=True)
 
-        # Sample DataFrame containing mutual fund names
-        df_names = pd.read_parquet('mstar_funds.parquet')
+
+        # create search bar
+        search_term = st.sidebar.text_input(label="Search", key=1)
+
+        if search_term:
+
+            # search for mutual funds
+            response = mstarpy.search_funds(term=search_term, field=["Name"],country="in", pageSize=100000)
+            # convert to dataframe
+            response = pd.DataFrame(response)
+
+            # get filtered options
+            filtered_options = [option for option in response.Name if search_term.lower() in option.lower()]
+
+
+            # Display the selectbox with filtered options
+            selected_mutual_funds = st.selectbox('Select an option', filtered_options)
 
 
         
-        names = df_names['Name'].to_list()
-        names.extend([' '])
-        # read mstar mf names
+            if selected_mutual_funds != ' ':
 
-        selected_mutual_funds = st.sidebar.selectbox("Select Mutual Funds:", names, index=len(names) - 1)
-
-        if selected_mutual_funds != ' ':
-
-            
-
-            include_units = st.text_input(label="Units", key=2, value=1)
-            if st.button("Add", key="add"):
-                # add screener
-                fund_data = mstarpy.Funds(term=selected_mutual_funds, country="in")
-
-                # today
-                today = datetime.date.today()
-                # yesterday
-                yesterday = today - datetime.timedelta(days=2)
-
-                #get historical data
-                history = fund_data.nav(start_date=yesterday,end_date=today, frequency="daily")
                 
-                
-                # if history is not empty
-                if len(history) > 0:
-                    # with spinner:
-                    df_history = pd.DataFrame(history)
-                    nav = df_history['nav'].iloc[-1]
 
+                include_units = st.text_input(label="Units", key=2, value=1)
+                if st.button("Add", key="add"):
+                    # add screener
+                    fund_data = mstarpy.Funds(term=selected_mutual_funds, country="in")
+
+                    # today
+                    today = datetime.date.today()
+                    # yesterday
+                    yesterday = today - datetime.timedelta(days=2)
+
+                    #get historical data
+                    history = fund_data.nav(start_date=yesterday,end_date=today, frequency="daily")
                     
-                    add_portfolio_entry(fund_data, include_units,nav)
-      
+                    
+                    # if history is not empty
+                    if len(history) > 0:
+                        # with spinner:
+                        df_history = pd.DataFrame(history)
+                        nav = df_history['nav'].iloc[-1]
+
+                        
+                        add_portfolio_entry(fund_data, include_units,nav)
+        
 
 
         st.header('OR')
