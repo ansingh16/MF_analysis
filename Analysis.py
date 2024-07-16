@@ -458,14 +458,34 @@ def nav_about():
     st.markdown(intro_markdown, unsafe_allow_html=True)
 
 
+# Function to apply styles to the DataFrame
+def highlight_columns(x):
+    # Copy df to a new object
+    df_copy = x.copy()
+    # Define the styles
+    df_copy.loc[:, 'Scheme Name'] = 'background-color: lightblue'
+    df_copy.loc[:, 'Objective'] = 'background-color: lightgreen'
+    return df_copy
+
+
 def nav_scheme_suggest():
      
-    # read the data from the csv file
-    all_schemes = pd.read_csv('all_schemes.csv')
+    # get all funds from the consolidated portfolio
+    funds = st.session_state.portfolio.fund_data.to_list()
 
-    # display multiselect widget
+    name=[]
+    details=[]
+    for fund in funds:
+        name.append(fund.name)
+        details.append(fund.investmentStrategy()['investmentStrategy'])
     
-         
+    detail_df = pd.DataFrame({'Scheme Name':name,'Objective':details})
+
+    st.markdown("<h2 style='text-align:center'>Scheme Objectives</h2>", unsafe_allow_html=True)
+    
+    st.markdown(detail_df.style.hide(axis="index").to_html(), unsafe_allow_html=True)
+
+
 
 def main():
     
