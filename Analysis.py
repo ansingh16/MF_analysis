@@ -45,7 +45,7 @@ styles_nav = {
              "width": "70%",
             "background-color": "teal",
             "float": "right",
-            "overflow": "hidden",
+            "overflow": "hidden"
         },
         "span": {
             "border-radius": "0.5rem",
@@ -169,8 +169,8 @@ def compare_schemes(portfolio, scheme1, scheme2):
     portfolio1['Scheme Name'] = scheme1
     portfolio2['Scheme Name'] = scheme2
 
-    portfolio1.rename(columns={'holdingType':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
-    portfolio2.rename(columns={'holdingType':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
+    portfolio1.rename(columns={'sector':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
+    portfolio2.rename(columns={'sector':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
 
     # print(portfolio1)
     # print(portfolio2)
@@ -214,7 +214,7 @@ def get_top_companies():
     """
     consol_df = st.session_state["consol_holdings"]
 
-    consol_df.rename(columns={'holdingType':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
+    consol_df.rename(columns={'sector':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
 
     # get value invested in a company
     consol_df['company_value']  = consol_df['Units'] * consol_df['NAV']*consol_df['Percent Contribution']
@@ -223,7 +223,7 @@ def get_top_companies():
     consol_df['Percentage by Value'] = (consol_df['company_value']/consol_df['company_value'].sum())*100
 
     # group by company_name and calculate the sum of the value and sort in descending order
-    top_companies = consol_df.groupby('Company')['Percentage by Value'].sum().reset_index().sort_values(by='Percentage by Value', ascending=False)
+    top_companies = consol_df.groupby(['Company', 'Sector'])['Percentage by Value'].sum().reset_index().sort_values(by='Percentage by Value', ascending=False)
 
     comapny_details = []
     # get all tickers and check the companies
@@ -237,7 +237,7 @@ def get_top_companies():
             comapny_details.append(fin_data_dict[ticker+'.NS'])
 
     comapny_details = pd.DataFrame(comapny_details)
-    return top_companies.head(10), comapny_details
+    return top_companies, comapny_details
 
 
 
@@ -249,25 +249,34 @@ def analyze_uploaded_file(uploaded_file):
         return df
 
 
-def add_portfolio_entry(fund_data, units,nav):
-
-    
-    # get name
-    name=fund_data.name
-
-    print("adding portfolio entry",name,units,nav,st.session_state.portfolio)
-
-    # Fund Category Name
+def add_portfolio_entry(fund_data, units, nav):
+    name = fund_data.name
     category_name = fund_data.allocationMap()['categoryName']
 
-    
-    # check if session_satate.portfolio is empty
-    # Add entry to the list of inputs
+    # Check if session_state.portfolio is empty
     if st.session_state.portfolio.empty:
         st.session_state.portfolio = pd.DataFrame([{"Scheme Name": name, "Units": float(units), "NAV": float(nav), "fund_data": fund_data, "Scheme Category": category_name, 'Checkbox': True}])
     else:
-        # now it is dataframe concat the dataframe
-        st.session_state.portfolio.loc[len(st.session_state.portfolio.index)] = [name,float(units),float(nav),fund_data, category_name, True]
+        # Append the new entry to the existing DataFrame
+        st.session_state.portfolio.loc[len(st.session_state.portfolio.index)] = [name, float(units), float(nav), fund_data, category_name, True]
+
+
+def process_fund(scheme_unit):
+    search_scheme, units = scheme_unit
+    response = mstarpy.search_funds(term=search_scheme, field=["Name", "fundShareClassId", "SectorName"], country="in", pageSize=20)
+    
+    if response:
+        result = response[0]
+        fund_data = mstarpy.Funds(term=result['Name'], country="in")
+        today = datetime.date.today()
+        yesterday = today - datetime.timedelta(days=1)
+        history = fund_data.nav(start_date=yesterday, end_date=today, frequency="daily")
+
+        if history:
+            df_history = pd.DataFrame(history)
+            nav = df_history['nav'].iloc[-1]
+            return (fund_data, units, nav)
+    return None
 
 def check_ckbox():
 
@@ -357,10 +366,29 @@ def portfolio_plots(consol_holdings):
             st.subheader("Top 10 Companies by Value")
 
             # convert the dataframe to a table
-            st.dataframe(top_companies,hide_index=True)
+            st.table(top_companies.head(10))
     
     st.markdown("---")
-    st.dataframe(comapny_details)
+    
+    # section for top companies in different sectors
+    st.subheader("Top-Companies in different sectors")
+
+
+    # Group top companies by sector
+    top_companies_by_sector = top_companies.groupby('Sector').apply(lambda x: x.nlargest(10, 'Percentage by Value')).reset_index(drop=True)
+
+    # Create a table in Streamlit for each sector and display the top 10 companies in each sector with Percent Contribution
+    for sector in top_companies_by_sector['Sector'].unique():
+        st.subheader(sector)
+        top_companies_in_sector = top_companies_by_sector[top_companies_by_sector['Sector'] == sector]
+        st.table(top_companies_in_sector[['Company', 'Percentage by Value']])
+
+    # st.table(top_companies_by_sector)
+
+
+    
+
+
 
 def nav_scheme_sector(portfolio):
      
@@ -419,6 +447,16 @@ def nav_scheme_compare(portfolio):
                     st.altair_chart(chart,use_container_width=True)
            
 
+
+# Function to process each scheme in parallel
+def process_scheme(portfolio, scheme_name, units, nav):
+    holdings = get_scheme_hold(portfolio, scheme_name)
+    holdings['Units'] = float(units)
+    holdings['NAV'] = nav
+    holdings['Scheme Category'] = portfolio.loc[portfolio["Scheme Name"] == scheme_name, "Scheme Category"].values[0]
+    return holdings
+
+
 def nav_portfolio(portfolio):
     
     if not portfolio.empty:
@@ -430,28 +468,12 @@ def nav_portfolio(portfolio):
                     all_units = portfolio['Units'].to_list()
                     all_nav = portfolio['NAV'].to_list()
                         
-                    consol_holdings_list = []             
-                    for scheme_name, units, nav in zip(all_scheme_names, all_units, all_nav):
-                                # get consolidated holdings
+                    with Pool() as pool:
+                        results = pool.starmap(process_scheme, [(portfolio, scheme_name, units, nav) for scheme_name, units, nav in zip(all_scheme_names, all_units, all_nav)])
+                    
 
-                                # use starmap to run in parallel on all urls
-                                # holdings = get_consolidated_holdings(scheme_name,units)
-
-                                holdings = get_scheme_hold(portfolio,scheme_name)
-                                
-                                # print(f"Processing {scheme_name}...holdings: {holdings.shape[0]}")
-
-                                holdings['Units'] = float(units)
-                                holdings['NAV'] = nav
-                                holdings['Scheme Category'] = portfolio.loc[portfolio["Scheme Name"] == scheme_name,"Scheme Category"].values[0]
-                                # append list
-                                consol_holdings_list.append(holdings)
-
-                    # print("Consolidated Holdings",consol_holdings_list)
-                # concat the list of dataframes into a single dataframe
-                consol_holdings = pd.concat(consol_holdings_list,ignore_index=True)
-                # consolidated holdings
-                st.session_state["consol_holdings"] = consol_holdings
+                    consol_holdings = pd.concat(results, ignore_index=True)
+                    st.session_state["consol_holdings"] = consol_holdings
 
 
                 st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
@@ -481,7 +503,7 @@ def main():
 
     st.session_state.ticker_data = all_tickers
 
-    pages = ["About","Scheme Distribution", "Scheme Compare", "Portfolio Analysis","Scheme Suggest"]
+    pages = ["About","Scheme Distribution", "Scheme Compare", "Portfolio Analysis"]
     
     
     # Add entry to the list of inputs
@@ -562,34 +584,15 @@ def main():
                 # Read the uploaded file into a pandas DataFrame
                 input_portfolio = pd.read_csv(uploaded_file)
 
-                for search_scheme, units in zip(input_portfolio['Scheme Name'], input_portfolio['Units']):
-                    response = mstarpy.search_funds(
-                        term=search_scheme,
-                        field=["Name", "fundShareClassId", "SectorName"],
-                        country="in",
-                        pageSize=20
-                    )
+                schemes_units = list(zip(input_portfolio['Scheme Name'], input_portfolio['Units']))
 
-                    # If response is not an empty dictionary
-                    if response:
-                        result = response[0]
+                with Pool() as pool:
+                    results = pool.map(process_fund, schemes_units)
 
-                        # Add screener
-                        fund_data = mstarpy.Funds(term=result['Name'], country="in")
-
-                        # Get today's date and yesterday's date
-                        today = datetime.date.today()
-                        yesterday = today - datetime.timedelta(days=1)
-
-                        # Get historical data
-                        history = fund_data.nav(start_date=yesterday, end_date=today, frequency="daily")
-
-                        # If history is not empty
-                        if history:
-                            df_history = pd.DataFrame(history)
-                            nav = df_history['nav'].iloc[-1]
-
-                            add_portfolio_entry(fund_data, units, nav)
+                for result in results:
+                    if result:
+                        fund_data, units, nav = result
+                        add_portfolio_entry(fund_data, units, nav)
 
         st.markdown('---')
             
