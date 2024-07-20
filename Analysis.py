@@ -7,6 +7,11 @@ from yahooquery import Ticker
 import mstarpy
 import datetime
 from multiprocessing import Pool
+from mstarpy import search_filter
+from mstarpy import filter_universe
+from mstarpy import search_funds
+
+
 
 
 def read_markdown_file(markdown_file):
@@ -266,6 +271,8 @@ def add_portfolio_entry(fund_data, units,nav):
 
 def check_ckbox():
 
+        print(st.session_state.portfolio)
+
         input_data = st.session_state.portfolio
         
 
@@ -416,7 +423,7 @@ def nav_portfolio(portfolio):
     
     if not portfolio.empty:
 
-                print("Portfolio shape",portfolio.shape)
+                # print("Portfolio shape",portfolio.shape)
                 if portfolio.shape[0] >=0:
                     # get consolidated holdings
                     all_scheme_names = portfolio['Scheme Name'].to_list()
@@ -432,7 +439,7 @@ def nav_portfolio(portfolio):
 
                                 holdings = get_scheme_hold(portfolio,scheme_name)
                                 
-                                print(f"Processing {scheme_name}...holdings: {holdings.shape[0]}")
+                                # print(f"Processing {scheme_name}...holdings: {holdings.shape[0]}")
 
                                 holdings['Units'] = float(units)
                                 holdings['NAV'] = nav
@@ -440,7 +447,7 @@ def nav_portfolio(portfolio):
                                 # append list
                                 consol_holdings_list.append(holdings)
 
-                    print("Consolidated Holdings",consol_holdings_list)
+                    # print("Consolidated Holdings",consol_holdings_list)
                 # concat the list of dataframes into a single dataframe
                 consol_holdings = pd.concat(consol_holdings_list,ignore_index=True)
                 # consolidated holdings
@@ -458,33 +465,7 @@ def nav_about():
     st.markdown(intro_markdown, unsafe_allow_html=True)
 
 
-# Function to apply styles to the DataFrame
-def highlight_columns(x):
-    # Copy df to a new object
-    df_copy = x.copy()
-    # Define the styles
-    df_copy.loc[:, 'Scheme Name'] = 'background-color: lightblue'
-    df_copy.loc[:, 'Objective'] = 'background-color: lightgreen'
-    return df_copy
-
-
-def nav_scheme_suggest():
-     
-    # get all funds from the consolidated portfolio
-    funds = st.session_state.portfolio.fund_data.to_list()
-
-    name=[]
-    details=[]
-    for fund in funds:
-        name.append(fund.name)
-        details.append(fund.investmentStrategy()['investmentStrategy'])
-    
-    detail_df = pd.DataFrame({'Scheme Name':name,'Objective':details})
-
-    st.markdown("<h2 style='text-align:center'>Scheme Objectives</h2>", unsafe_allow_html=True)
-    
-    st.markdown(detail_df.style.hide(axis="index").to_html(), unsafe_allow_html=True)
-
+# Function to process each scheme
 
 
 def main():
@@ -570,57 +551,45 @@ def main():
 
         st.header('OR')
 
-        st.header("Upload CSV File")
-        st.info("Please upload a CSV file with the following columns: 'Scheme URL', 'Units'")
-
-        uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
-
-        
-        
-        if st.button("Add file",key="add_csv"):
-
-            if uploaded_file is not None:
-
                 
-                    # Read the uploaded file into a pandas DataFrame
-                    input_portfolio = pd.read_csv(uploaded_file)
-                    
-                    # print(schemes)
+        st.header("Upload CSV File")
+        st.info("Please upload a CSV file with the following columns: 'Scheme Name', 'Units'")
 
-                    for search_scheme,units in zip(input_portfolio['Scheme Name'],input_portfolio['Units']):
-                        
-                       
-                            response = mstarpy.search_funds(term=search_scheme,field=["Name", "fundShareClassId", "SectorName"],country="in",pageSize=20)
+        uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
 
-                            # print(search_scheme,response[0]['Name'])
+        if st.button("Add file", key="add_csv"):
+            if uploaded_file is not None:
+                # Read the uploaded file into a pandas DataFrame
+                input_portfolio = pd.read_csv(uploaded_file)
 
-                            # if response is not empty dictionary
-                            if response != {}:
+                for search_scheme, units in zip(input_portfolio['Scheme Name'], input_portfolio['Units']):
+                    response = mstarpy.search_funds(
+                        term=search_scheme,
+                        field=["Name", "fundShareClassId", "SectorName"],
+                        country="in",
+                        pageSize=20
+                    )
 
-                                result = response[0]
+                    # If response is not an empty dictionary
+                    if response:
+                        result = response[0]
 
-                                # add screener
-                                fund_data = mstarpy.Funds(term=result['Name'], country="in")
+                        # Add screener
+                        fund_data = mstarpy.Funds(term=result['Name'], country="in")
 
-                                # today
-                                today = datetime.date.today()
-                                # yesterday
-                                yesterday = today - datetime.timedelta(days=2)
+                        # Get today's date and yesterday's date
+                        today = datetime.date.today()
+                        yesterday = today - datetime.timedelta(days=1)
 
-                                #get historical data
-                                history = fund_data.nav(start_date=yesterday,end_date=today, frequency="daily")
-                                
-                                
-                                # if history is not empty
-                                if len(history) > 0:
-                                    # with spinner:
-                                    df_history = pd.DataFrame(history)
-                                    nav = df_history['nav'].iloc[-1]
+                        # Get historical data
+                        history = fund_data.nav(start_date=yesterday, end_date=today, frequency="daily")
 
-                                    add_portfolio_entry(fund_data, units,nav)
-                        
-                    
-                    
+                        # If history is not empty
+                        if history:
+                            df_history = pd.DataFrame(history)
+                            nav = df_history['nav'].iloc[-1]
+
+                            add_portfolio_entry(fund_data, units, nav)
 
         st.markdown('---')
             
@@ -644,9 +613,6 @@ def main():
         nav_scheme_compare(st.session_state.portfolio)
     elif navigation == 'Portfolio Analysis':
         nav_portfolio(st.session_state.portfolio)
-    elif navigation == 'Scheme Suggest':
-        nav_scheme_suggest()
-    
 
         
         
