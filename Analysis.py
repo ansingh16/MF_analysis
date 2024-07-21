@@ -10,7 +10,8 @@ from multiprocessing import Pool
 from mstarpy import search_filter
 from mstarpy import filter_universe
 from mstarpy import search_funds
-
+from rapidfuzz import process
+from thefuzz import process
 
 
 
@@ -59,6 +60,13 @@ styles_nav = {
             "background-color": "rgba(255, 255, 255, 0.35)",
         }
     }
+
+
+
+# Function to find closest match
+def get_closest_match(input_string, possible_matches):
+    closest_match = process.extractOne(input_string, possible_matches)
+    return closest_match if closest_match else None
 
 
 @st.cache_data
@@ -225,19 +233,19 @@ def get_top_companies():
     # group by company_name and calculate the sum of the value and sort in descending order
     top_companies = consol_df.groupby(['Company', 'Sector'])['Percentage by Value'].sum().reset_index().sort_values(by='Percentage by Value', ascending=False)
 
-    comapny_details = []
+    # comapny_details = []
     # get all tickers and check the companies
-    for company in top_companies['Company'].head(10):
+    # for company in top_companies['Company'].head(10):
         
-        if company.upper() in st.session_state.ticker_data['name'].values:
-            ticker = st.session_state.ticker_data.loc[st.session_state.ticker_data['name'] == company.upper(),'tradingsymbol'].values[0]
-            ticker_yf = Ticker(ticker+'.NS') 
-            fin_data_dict = ticker_yf.financial_data
+        # if company.upper() in st.session_state.ticker_data['name'].values:
+        #     ticker = st.session_state.ticker_data.loc[st.session_state.ticker_data['name'] == company.upper(),'tradingsymbol'].values[0]
+        #     ticker_yf = Ticker(ticker+'.NS') 
+        #     fin_data_dict = ticker_yf.financial_data
 
-            comapny_details.append(fin_data_dict[ticker+'.NS'])
+        #     comapny_details.append(fin_data_dict[ticker+'.NS'])
 
-    comapny_details = pd.DataFrame(comapny_details)
-    return top_companies, comapny_details
+    # comapny_details = pd.DataFrame(comapny_details)
+    return top_companies
 
 
 
@@ -280,7 +288,7 @@ def process_fund(scheme_unit):
 
 def check_ckbox():
 
-        print(st.session_state.portfolio)
+        # print(st.session_state.portfolio)
 
         input_data = st.session_state.portfolio
         
@@ -340,33 +348,57 @@ def portfolio_plots(consol_holdings):
 
     c1, c2 = st.columns(spec=[0.52, 0.48])
 
+    # from consolidated holdings get the top companies
+    # get top 10 companies by value
+    top_companies = get_top_companies()
+    # reset index
+    top_companies.reset_index(drop=True, inplace=True)
+    # set index to start from 1
+    top_companies.index = top_companies.index + 1
+    # rename the columns
+    top_companies.rename(columns={'index': 'Rank', 'company_name': 'Company', 'percent_value': '% of Total'}, inplace=True)
+
+    # print(top_companies.columns)
+
     with c1:
             # make the heading at center 
             st.subheader("Portfolio Holdings by Sector")
             # make donut chart
             donut2 = donut_sector_value(consol_holdings)
             st.altair_chart(donut2,use_container_width=True)
+
+            st.subheader("Search Company")
+
+            # create search bar
+            search_term = st.text_input(label="Search Company")
+
+            
+            if search_term:
+
+                closest_match = get_closest_match(search_term, top_companies['Company'].tolist())
+
+                print(closest_match)
+                if closest_match:
+                    matched_name = closest_match[0]
+                    score = closest_match[1]
+
+                    # display closest match and its Percentage by Value
+                    st.write(f'Closest match: {matched_name} (Score: {score})')
+                    st.write(f'Percentage by Value: {top_companies[top_companies["Company"] == matched_name]["Percentage by Value"].values[0]:.2f}%')
+                else:
+                    st.write('No close match found.')
+
             
         
     with c2:
 
-            # from consolidated holdings get the top companies
-            # get top 10 companies by value
-            top_companies, comapny_details = get_top_companies()
-            # reset index
-            top_companies.reset_index(drop=True, inplace=True)
-
-            # set index to start from 1
-            top_companies.index = top_companies.index + 1
-
-            # rename the columns
-            top_companies.rename(columns={'index': 'Rank', 'company_name': 'Company', 'percent_value': '% of Total'}, inplace=True)
-
+           
             # create a table in steamlit
             st.subheader("Top 10 Companies by Value")
 
             # convert the dataframe to a table
-            st.table(top_companies.head(10))
+            for i, row in top_companies.head(15).iterrows():
+                st.write(f" {row['Company']} ({row['Percentage by Value']:.2f}%)")
     
     st.markdown("---")
     
@@ -381,6 +413,8 @@ def portfolio_plots(consol_holdings):
     for sector in top_companies_by_sector['Sector'].unique():
         st.subheader(sector)
         top_companies_in_sector = top_companies_by_sector[top_companies_by_sector['Sector'] == sector]
+
+        
         st.table(top_companies_in_sector[['Company', 'Percentage by Value']])
 
     # st.table(top_companies_by_sector)
