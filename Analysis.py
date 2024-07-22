@@ -12,7 +12,7 @@ from mstarpy import filter_universe
 from mstarpy import search_funds
 from rapidfuzz import process
 from thefuzz import process
-
+import seaborn as sns
 
 
 def read_markdown_file(markdown_file):
@@ -37,7 +37,8 @@ if 'update' not in st.session_state:
     st.session_state.selected_schemes = None
 if 'ticker_data' not in st.session_state:
     st.session_state.ticker_data = None
-
+if 'top_companies' not in st.session_state:
+    st.session_state.top_companies = None
 if 'add_fund' not in st.session_state:
     st.session_state.add_fund = None
 
@@ -273,16 +274,18 @@ def process_fund(scheme_unit):
     search_scheme, units = scheme_unit
     response = mstarpy.search_funds(term=search_scheme, field=["Name", "fundShareClassId", "SectorName"], country="in", pageSize=20)
     
+    
     if response:
         result = response[0]
         fund_data = mstarpy.Funds(term=result['Name'], country="in")
         today = datetime.date.today()
-        yesterday = today - datetime.timedelta(days=1)
+        yesterday = today - datetime.timedelta(days=3)
         history = fund_data.nav(start_date=yesterday, end_date=today, frequency="daily")
 
         if history:
             df_history = pd.DataFrame(history)
             nav = df_history['nav'].iloc[-1]
+
             return (fund_data, units, nav)
     return None
 
@@ -350,7 +353,7 @@ def portfolio_plots(consol_holdings):
 
     # from consolidated holdings get the top companies
     # get top 10 companies by value
-    top_companies = get_top_companies()
+    top_companies = st.session_state.top_companies
     # reset index
     top_companies.reset_index(drop=True, inplace=True)
     # set index to start from 1
@@ -377,7 +380,6 @@ def portfolio_plots(consol_holdings):
 
                 closest_match = get_closest_match(search_term, top_companies['Company'].tolist())
 
-                print(closest_match)
                 if closest_match:
                     matched_name = closest_match[0]
                     score = closest_match[1]
@@ -423,8 +425,19 @@ def portfolio_plots(consol_holdings):
     
 
 
+# Function to process each scheme in parallel
+def get_holdings(portfolio, scheme_name, units, nav):
+    holdings = get_scheme_hold(portfolio, scheme_name)
+    holdings['Units'] = float(units)
+    holdings['NAV'] = nav
+    holdings['Scheme Category'] = portfolio.loc[portfolio["Scheme Name"] == scheme_name, "Scheme Category"].values[0]
+    holdings['Scheme Name'] = portfolio.loc[portfolio["Scheme Name"] == scheme_name, "Scheme Name"].values[0]
+    return holdings
 
-def nav_scheme_sector(portfolio):
+
+
+
+def nav_scheme_distribution(portfolio):
      
     # check which checkboxes are checked
     
@@ -453,7 +466,18 @@ def nav_scheme_sector(portfolio):
         donut2 = donut_scheme_holding(holdings)
         st.altair_chart(donut2,use_container_width=True)
 
+        st.markdown("---")
 
+        st.subheader("Holdings")
+
+        scheme_holdings = get_scheme_hold(portfolio, scheme_name)
+
+        scheme_holdings.rename(columns={'weighting':'Percent Contribution','securityName':'Company','sector':'Sector'}, inplace=True)
+
+        scheme_holdings = scheme_holdings.dropna(subset=['Percent Contribution'])
+
+
+        st.table(scheme_holdings[['Company', 'Sector', 'Percent Contribution']])
 
 
 def nav_scheme_compare(portfolio):
@@ -479,36 +503,41 @@ def nav_scheme_compare(portfolio):
                     chart = compare_schemes(portfolio,selected_schemes[0],selected_schemes[1])
 
                     st.altair_chart(chart,use_container_width=True)
-           
 
 
-# Function to process each scheme in parallel
-def process_scheme(portfolio, scheme_name, units, nav):
-    holdings = get_scheme_hold(portfolio, scheme_name)
-    holdings['Units'] = float(units)
-    holdings['NAV'] = nav
-    holdings['Scheme Category'] = portfolio.loc[portfolio["Scheme Name"] == scheme_name, "Scheme Category"].values[0]
-    return holdings
+        # # Pivot the data to get schemes as rows and sectors as columns
+        # df_pivot = st.session_state.consol_holdings.pivot(index='Scheme Name', columns='sector', values='weighting').fillna(0)
+
+        # print(df_pivot)
+
+        # # Compute the correlation matrix
+        # correlation_matrix = df_pivot.T.corr()
+
+        # # seaborn heatmap
+        # sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm")
+        # st.pyplot()
 
 
 def nav_portfolio(portfolio):
     
     if not portfolio.empty:
 
-                # print("Portfolio shape",portfolio.shape)
-                if portfolio.shape[0] >=0:
-                    # get consolidated holdings
-                    all_scheme_names = portfolio['Scheme Name'].to_list()
-                    all_units = portfolio['Units'].to_list()
-                    all_nav = portfolio['NAV'].to_list()
+                # # print("Portfolio shape",portfolio.shape)
+                # if portfolio.shape[0] >=0:
+                #     # get consolidated holdings
+                #     all_scheme_names = portfolio['Scheme Name'].to_list()
+                #     all_units = portfolio['Units'].to_list()
+                #     all_nav = portfolio['NAV'].to_list()
                         
-                    with Pool() as pool:
-                        results = pool.starmap(process_scheme, [(portfolio, scheme_name, units, nav) for scheme_name, units, nav in zip(all_scheme_names, all_units, all_nav)])
+                #     with Pool() as pool:
+                #         results = pool.starmap(get_holdings, [(portfolio, scheme_name, units, nav) for scheme_name, units, nav in zip(all_scheme_names, all_units, all_nav)])
                     
 
-                    consol_holdings = pd.concat(results, ignore_index=True)
-                    st.session_state["consol_holdings"] = consol_holdings
+                #     consol_holdings = pd.concat(results, ignore_index=True)
+                #     st.session_state["consol_holdings"] = consol_holdings
 
+                # get top companies
+                st.session_state["top_companies"] = get_top_companies()
 
                 st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Holdings</h2>", unsafe_allow_html=True)
                 
@@ -623,6 +652,7 @@ def main():
                 with Pool() as pool:
                     results = pool.map(process_fund, schemes_units)
 
+                    
                 for result in results:
                     if result:
                         fund_data, units, nav = result
@@ -636,6 +666,21 @@ def main():
          # check which checkboxes are checked
         st.session_state.portfolio = check_ckbox()
 
+        # print("Portfolio shape",portfolio.shape)
+        if st.session_state.portfolio.shape[0] >0:
+                    # get consolidated holdings
+                    all_scheme_names = st.session_state.portfolio['Scheme Name'].to_list()
+                    all_units = st.session_state.portfolio['Units'].to_list()
+                    all_nav = st.session_state.portfolio['NAV'].to_list()
+                        
+                    with Pool() as pool:
+                        results = pool.starmap(get_holdings, [(st.session_state.portfolio, scheme_name, units, nav) for scheme_name, units, nav in zip(all_scheme_names, all_units, all_nav)])
+                    
+
+                    consol_holdings = pd.concat(results, ignore_index=True)
+                    st.session_state["consol_holdings"] = consol_holdings
+
+
     # Render the navigation bar
     navigation = st_navbar(pages, styles=styles_nav,selected='About')
 
@@ -645,7 +690,7 @@ def main():
     if navigation == 'About':
         nav_about()
     elif navigation == 'Scheme Distribution':
-        nav_scheme_sector(st.session_state.portfolio)
+        nav_scheme_distribution(st.session_state.portfolio)
     elif navigation == 'Scheme Compare':
         nav_scheme_compare(st.session_state.portfolio)
     elif navigation == 'Portfolio Analysis':

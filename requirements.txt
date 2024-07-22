@@ -9,3 +9,4 @@ streamlit==1.29.0
 streamlit-navigation-bar==3.1.2
 streamlit-searchbox==0.1.10
 yahooquery
+thefuzz
