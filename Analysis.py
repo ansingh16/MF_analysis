@@ -13,7 +13,7 @@ from mstarpy import search_funds
 from rapidfuzz import process
 from thefuzz import process
 import seaborn as sns
-
+import matplotlib.pyplot as plt
 
 def read_markdown_file(markdown_file):
     return Path(markdown_file).read_text()
@@ -480,6 +480,21 @@ def nav_scheme_distribution(portfolio):
         st.table(scheme_holdings[['Company', 'Sector', 'Percent Contribution']])
 
 
+# Function to process the data and calculate the correlation matrix between schemes
+@st.cache_data
+def correlation(df):
+    # Aggregate sector allocations by scheme
+    sector_allocations = df.groupby(['Scheme Name', 'sector'])['weighting'].sum().reset_index()
+    
+    # Pivot the data to get schemes as rows and sectors as columns
+    df_pivot = sector_allocations.pivot(index='Scheme Name', columns='sector', values='weighting').fillna(0)
+    
+    # Compute the correlation matrix between schemes
+    correlation_matrix = df_pivot.T.corr()
+    
+    return correlation_matrix
+
+
 def nav_scheme_compare(portfolio):
     
 
@@ -505,17 +520,51 @@ def nav_scheme_compare(portfolio):
                     st.altair_chart(chart,use_container_width=True)
 
 
-        # # Pivot the data to get schemes as rows and sectors as columns
-        # df_pivot = st.session_state.consol_holdings.pivot(index='Scheme Name', columns='sector', values='weighting').fillna(0)
+        st.markdown("---")
 
-        # print(df_pivot)
+        st.subheader("Correlation Between Schemes Based on Sector Allocations")
 
-        # # Compute the correlation matrix
-        # correlation_matrix = df_pivot.T.corr()
+        # Ensure the DataFrame has the necessary columns
+        if 'securityName' in st.session_state.consol_holdings.columns and 'sector' in st.session_state.consol_holdings.columns and 'weighting' in st.session_state.consol_holdings.columns and 'Scheme Name' in st.session_state.consol_holdings.columns:
+            # Process data to get the correlation matrix
+            correlation_matrix = correlation(st.session_state.consol_holdings)
+            
+            # Reset index for Altair compatibility
+            correlation_matrix = correlation_matrix.reset_index().rename(columns={'index': 'Scheme Name'})
+            correlation_matrix_melted = correlation_matrix.melt(id_vars='Scheme Name', var_name='Scheme Name ', value_name='Correlation')
+            
+            # in altair show correlation inside the heatmap
+            
+            # Create the heatmap using Altair
+            base = alt.Chart(correlation_matrix_melted).encode(
+                x='Scheme Name:O',
+                y='Scheme Name :O'
+            )
 
-        # # seaborn heatmap
-        # sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm")
-        # st.pyplot()
+            heatmap = base.mark_rect().encode(
+            color=alt.Color('Correlation:Q', scale=alt.Scale(domain=[-1, 1]))
+            ).properties(
+                width=600,
+                height=600,
+            )
+
+            text = base.mark_text(baseline='middle').encode(
+                text=alt.Text('Correlation:Q', format='.2f'),
+                color=alt.condition(
+                    alt.datum.Correlation > 0.5, 
+                    alt.value('black'), 
+                    alt.value('white')
+                )
+            )
+
+            # Combine the heatmap and text
+            chart = heatmap + text
+
+            # Display the heatmap in Streamlit
+            st.altair_chart(chart, use_container_width=True)
+
+
+            
 
 
 def nav_portfolio(portfolio):
