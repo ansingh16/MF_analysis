@@ -3,20 +3,16 @@ import pandas as pd
 import altair as alt
 from streamlit_navigation_bar import st_navbar
 from pathlib import Path
-from yahooquery import Ticker
 import mstarpy
 import datetime
 from multiprocessing import Pool
-from mstarpy import search_filter
-from mstarpy import filter_universe
 from mstarpy import search_funds
-from rapidfuzz import process
 from thefuzz import process
-import seaborn as sns
-import matplotlib.pyplot as plt
 
-def read_markdown_file(markdown_file):
-    return Path(markdown_file).read_text()
+
+
+
+
 
 st.set_page_config(initial_sidebar_state="expanded")
 
@@ -35,12 +31,9 @@ if 'selected_schemes' not in st.session_state:
     st.session_state.selected_schemes = None       
 if 'update' not in st.session_state:
     st.session_state.selected_schemes = None
-if 'ticker_data' not in st.session_state:
-    st.session_state.ticker_data = None
 if 'top_companies' not in st.session_state:
     st.session_state.top_companies = None
-if 'add_fund' not in st.session_state:
-    st.session_state.add_fund = None
+
 
 styles_nav = {
         "nav": {
@@ -63,6 +56,8 @@ styles_nav = {
     }
 
 
+def read_markdown_file(markdown_file):
+    return Path(markdown_file).read_text()
 
 # Function to find closest match
 def get_closest_match(input_string, possible_matches):
@@ -110,9 +105,6 @@ def donut_value(mf_portfolio):
 
 @st.cache_data
 def donut_sector_value(consol_df):
-    # consol_df = st.session_state["consol_holdings"]
-
-    # print(consol_df.columns)
 
     # Calculate current value in schemes
     all_scheme_value = consol_df['Units'] * consol_df['NAV']
@@ -120,7 +112,6 @@ def donut_sector_value(consol_df):
     total_value = all_scheme_value.sum()
     consol_df['Fraction Value'] = (all_scheme_value / total_value)*100
 
-    # consol_df['Sector'] = 
 
     consol_df.rename(columns={'sector':'Sector'}, inplace=True)
 
@@ -240,18 +231,7 @@ def get_top_companies():
     # group by company_name and calculate the sum of the value and sort in descending order
     top_companies = consol_df.groupby(['Company', 'Sector'])['Percentage by Value'].sum().reset_index().sort_values(by='Percentage by Value', ascending=False)
 
-    # comapny_details = []
-    # get all tickers and check the companies
-    # for company in top_companies['Company'].head(10):
-        
-        # if company.upper() in st.session_state.ticker_data['name'].values:
-        #     ticker = st.session_state.ticker_data.loc[st.session_state.ticker_data['name'] == company.upper(),'tradingsymbol'].values[0]
-        #     ticker_yf = Ticker(ticker+'.NS') 
-        #     fin_data_dict = ticker_yf.financial_data
-
-        #     comapny_details.append(fin_data_dict[ticker+'.NS'])
-
-    # comapny_details = pd.DataFrame(comapny_details)
+   
     return top_companies
 
 
@@ -337,8 +317,6 @@ def portfolio_plots(consol_df):
     consol_holdings['sector'] =consol_holdings['sector'].fillna(consol_holdings['holdingType'])
 
 
-    # print("Here")
-    # print(consol_holdings)
 
     c1, c2 = st.columns(2)
 
@@ -615,17 +593,7 @@ def nav_about():
 
 def main():
     
-    # response = mstarpy.search_funds(term="", field=["Name",'fundShareClassId'], country="in", pageSize=100000, currency="INR")
-    # df = pd.DataFrame(response)
-
-    # df.to_parquet('mstar_funds.parquet')
-
-    # all tickers 
-        
-    all_tickers = pd.read_csv('all_tickers_india.csv',usecols=['instrument_key','tradingsymbol','name'])
-
-    st.session_state.ticker_data = all_tickers
-
+    
     pages = ["About","Scheme Distribution", "Scheme Compare", "Portfolio Analysis"]
     
     
