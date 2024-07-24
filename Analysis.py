@@ -110,7 +110,7 @@ def donut_value(mf_portfolio):
 
 @st.cache_data
 def donut_sector_value(consol_df):
-    consol_df = st.session_state["consol_holdings"]
+    # consol_df = st.session_state["consol_holdings"]
 
     # print(consol_df.columns)
 
@@ -225,6 +225,12 @@ def get_top_companies():
 
     consol_df.rename(columns={'sector':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
 
+    consol_df = consol_df.dropna(subset=['Percent Contribution'])
+        
+    # fill None in sector column with holdingType
+    consol_df['Sector'] = consol_df['Sector'].fillna(consol_df['holdingType'])
+
+
     # get value invested in a company
     consol_df['company_value']  = consol_df['Units'] * consol_df['NAV']*consol_df['Percent Contribution']
     
@@ -323,7 +329,13 @@ def check_ckbox():
 
             
 
-def portfolio_plots(consol_holdings):
+def portfolio_plots(consol_df):
+
+    consol_holdings = consol_df.dropna(subset=['weighting'])
+        
+    # fill None in sector column with holdingType
+    consol_holdings['sector'] =consol_holdings['sector'].fillna(consol_holdings['holdingType'])
+
 
     # print("Here")
     # print(consol_holdings)
@@ -475,6 +487,10 @@ def nav_scheme_distribution(portfolio):
         scheme_holdings.rename(columns={'weighting':'Percent Contribution','securityName':'Company','sector':'Sector'}, inplace=True)
 
         scheme_holdings = scheme_holdings.dropna(subset=['Percent Contribution'])
+        
+        # fill None in sector column with holdingType
+        scheme_holdings['Sector'] = scheme_holdings['Sector'].fillna(scheme_holdings['holdingType'])
+
 
 
         st.table(scheme_holdings[['Company', 'Sector', 'Percent Contribution']])
@@ -526,8 +542,15 @@ def nav_scheme_compare(portfolio):
 
         # Ensure the DataFrame has the necessary columns
         if 'securityName' in st.session_state.consol_holdings.columns and 'sector' in st.session_state.consol_holdings.columns and 'weighting' in st.session_state.consol_holdings.columns and 'Scheme Name' in st.session_state.consol_holdings.columns:
+
+            consol_holdings = st.session_state.consol_holdings.dropna(subset=['weighting'])
+        
+            # fill None in sector column with holdingType
+            consol_holdings['sector'] =consol_holdings['sector'].fillna(consol_holdings['holdingType'])
+
+
             # Process data to get the correlation matrix
-            correlation_matrix = correlation(st.session_state.consol_holdings)
+            correlation_matrix = correlation(consol_holdings)
             
             # Reset index for Altair compatibility
             correlation_matrix = correlation_matrix.reset_index().rename(columns={'index': 'Scheme Name'})
@@ -571,19 +594,7 @@ def nav_portfolio(portfolio):
     
     if not portfolio.empty:
 
-                # # print("Portfolio shape",portfolio.shape)
-                # if portfolio.shape[0] >=0:
-                #     # get consolidated holdings
-                #     all_scheme_names = portfolio['Scheme Name'].to_list()
-                #     all_units = portfolio['Units'].to_list()
-                #     all_nav = portfolio['NAV'].to_list()
-                        
-                #     with Pool() as pool:
-                #         results = pool.starmap(get_holdings, [(portfolio, scheme_name, units, nav) for scheme_name, units, nav in zip(all_scheme_names, all_units, all_nav)])
-                    
-
-                #     consol_holdings = pd.concat(results, ignore_index=True)
-                #     st.session_state["consol_holdings"] = consol_holdings
+               
 
                 # get top companies
                 st.session_state["top_companies"] = get_top_companies()
