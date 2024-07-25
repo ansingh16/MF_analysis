@@ -1,5 +1,13 @@
 import altair as alt
 import streamlit as st
+from thefuzz import process
+
+
+
+def get_closest_match(input_string, possible_matches):
+    closest_match = process.extractOne(input_string, possible_matches)
+    return closest_match if closest_match else None
+
 
 @st.cache_data
 def donut_portfolio(consol_holdings):
@@ -83,13 +91,13 @@ def donut_scheme_holding(holdings_df):
 
 
 
-
 def portfolio_plots(consol_df):
 
-    consol_holdings = consol_df.dropna(subset=['weighting'])
+    # drop null values in weighting
+    consol_holdings = consol_df.dropna(subset=['Percent Contribution'])
         
     # fill None in sector column with holdingType
-    consol_holdings['sector'] =consol_holdings['sector'].fillna(consol_holdings['holdingType'])
+    consol_holdings['Sector'] =consol_holdings['Sector'].fillna(consol_holdings['holdingType'])
 
 
 

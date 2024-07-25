@@ -5,9 +5,6 @@ import altair as alt
 import mstarpy
 import datetime
 from modules.plotting import portfolio_plots, donut_scheme_holding
-from modules.data_processing import compare_schemes
-from thefuzz import process
-
 
 
 def read_markdown_file(markdown_file):
@@ -104,9 +101,6 @@ def get_top_companies():
     return top_companies
 
 
-def get_closest_match(input_string, possible_matches):
-    closest_match = process.extractOne(input_string, possible_matches)
-    return closest_match if closest_match else None
 
 
 # Function to load data
@@ -183,6 +177,7 @@ def check_ckbox():
             
 
 # Function to process each scheme in parallel
+@st.cache_data
 def get_holdings(portfolio, scheme_name, units, nav):
     holdings = get_scheme_hold(portfolio, scheme_name)
     holdings['Units'] = float(units)
@@ -355,3 +350,4 @@ def nav_scheme_distribution(portfolio):
 
 
         st.table(scheme_holdings[['Company', 'Sector', 'Percent Contribution']])
+
