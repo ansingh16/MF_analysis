@@ -87,13 +87,28 @@ def main():
         st.header("Upload CSV File")
         st.info("Please upload a CSV file with the following columns: 'Scheme Name', 'Units'")
 
+        # add file uploader
         uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
 
-        if st.button("Add file", key="add_csv"):            
+        # make two columns
+        col1, col2 = st.columns(2)
 
-            with st.spinner("Analyzing..."):
+        with col1:
+            
+            if st.button("Add file", key="add_csv"):            
+
+                with st.spinner("Analyzing..."):
                 
-                add_portfolio_file(uploaded_file)
+                    add_portfolio_file(uploaded_file)
+        with col2:
+
+            if st.button("Add sample file", key="add_sample"):            
+
+                with st.spinner("Analyzing..."):
+                    
+                    uploaded_file = './sample_port.csv'
+                    add_portfolio_file(uploaded_file)
+
 
         st.markdown('---')
             
@@ -103,11 +118,12 @@ def main():
         # check which checkboxes are checked
         st.session_state.portfolio = check_ckbox()
 
-        # print("Portfolio shape",portfolio.shape)
+        # check if portfolio is not empty
         if st.session_state.portfolio.shape[0] >0:
                     
                     consol_holdings = get_consol_holdings()
 
+                    # set session state for consol_holdings
                     st.session_state["consol_holdings"] = consol_holdings
 
 
@@ -116,7 +132,7 @@ def main():
 
 
 
-    
+    # Call the appropriate function based on the selected page
     if navigation == 'About':
         nav_about()
     elif navigation == 'Scheme Distribution':
