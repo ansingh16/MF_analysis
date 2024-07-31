@@ -160,6 +160,14 @@ def portfolio_plots(consol_df):
                     # display closest match and its Percentage by Value
                     st.write(f'Closest match: {matched_name} (Score: {score})')
                     st.write(f'Percentage by Value: {top_companies[top_companies["Company"] == matched_name]["Percentage by Value"].values[0]:.2f}%')
+
+                    st.write(f'In the following Funds:')
+
+                    comdat = top_companies[top_companies["Company"] == matched_name]
+
+                    for scheme,per_con, per_val in zip(comdat['Scheme Name'],comdat['Percent Contribution'],comdat['Percentage by Value']):
+
+                        st.write(f'{scheme} | Percent Contribution={per_con:.2f}% | Percentage by Value {per_val:.2f}%')
                 else:
                     st.write('No close match found.')
 

@@ -84,5 +84,20 @@ def get_consol_holdings():
 
     consol_holdings = pd.concat(results, ignore_index=True)
 
+    consol_holdings.rename(columns={'sector':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
+
+    consol_holdings = consol_holdings.dropna(subset=['Percent Contribution'])
+        
+    # fill None in sector column with holdingType
+    consol_holdings['Sector'] = consol_holdings['Sector'].fillna(consol_holdings['holdingType'])
+
+
+    # get value invested in a company
+    consol_holdings['company_value']  = consol_holdings['Units'] * consol_holdings['NAV']*consol_holdings['Percent Contribution']
+    
+    # percent invested in a company with respect to total value of all companies
+    consol_holdings['Percentage by Value'] = (consol_holdings['company_value']/consol_holdings['company_value'].sum())*100
+
+
     return consol_holdings
                     

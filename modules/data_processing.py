@@ -80,22 +80,9 @@ def get_top_companies():
     """
     consol_df = st.session_state["consol_holdings"]
 
-    consol_df.rename(columns={'sector':'Sector', 'securityName':'Company', 'weighting':'Percent Contribution'}, inplace=True)
-
-    consol_df = consol_df.dropna(subset=['Percent Contribution'])
-        
-    # fill None in sector column with holdingType
-    consol_df['Sector'] = consol_df['Sector'].fillna(consol_df['holdingType'])
-
-
-    # get value invested in a company
-    consol_df['company_value']  = consol_df['Units'] * consol_df['NAV']*consol_df['Percent Contribution']
     
-    # percent invested in a company with respect to total value of all companies
-    consol_df['Percentage by Value'] = (consol_df['company_value']/consol_df['company_value'].sum())*100
-
     # group by company_name and calculate the sum of the value and sort in descending order
-    top_companies = consol_df.groupby(['Company', 'Sector'])['Percentage by Value'].sum().reset_index().sort_values(by='Percentage by Value', ascending=False)
+    top_companies = consol_df.groupby(['Company', 'Sector','Scheme Name','Percent Contribution'])['Percentage by Value'].sum().reset_index().sort_values(by='Percentage by Value', ascending=False)
 
    
     return top_companies
@@ -190,10 +177,10 @@ def get_holdings(portfolio, scheme_name, units, nav):
 @st.cache_data
 def correlation(df):
     # Aggregate sector allocations by scheme
-    sector_allocations = df.groupby(['Scheme Name', 'sector'])['weighting'].sum().reset_index()
+    sector_allocations = df.groupby(['Scheme Name', 'Sector'])['Percent Contribution'].sum().reset_index()
     
     # Pivot the data to get schemes as rows and sectors as columns
-    df_pivot = sector_allocations.pivot(index='Scheme Name', columns='sector', values='weighting').fillna(0)
+    df_pivot = sector_allocations.pivot(index='Scheme Name', columns='Sector', values='Percent Contribution').fillna(0)
     
     # Compute the correlation matrix between schemes
     correlation_matrix = df_pivot.T.corr()
@@ -205,12 +192,22 @@ def correlation(df):
 
 def nav_scheme_compare(portfolio):
     
+    st.markdown("<h2 style='text-align:center'>Scheme Comparison</h2>", unsafe_allow_html=True)
+
+    st.markdown("Please select two schemes from the drop down menu to compare the sectorial allocations and then click on 'Compare' button. This will generate a histogram of the sector allocations of the selected schemes.")
+
+    st.markdown("---")
 
     if not portfolio.empty:
 
         if portfolio.shape[0]>=2:
              
             st.markdown("<h3 style='text-align:center'>Scheme Comparison</h3>", unsafe_allow_html=True)
+
+
+           
+            st.markdown("---")
+
 
             # Display the dataframe with checkboxes for selection
                         
@@ -232,14 +229,15 @@ def nav_scheme_compare(portfolio):
 
         st.subheader("Correlation Between Schemes Based on Sector Allocations")
 
+        st.markdown("Following is the correlation matrix of the sector allocations of all the schemes in portfolio. To achieve a good portfolio diversification one must make sure that schemes are not highly correlated among themselves in terms of sectorial allocations.")
+            
+
         # Ensure the DataFrame has the necessary columns
-        if 'securityName' in st.session_state.consol_holdings.columns and 'sector' in st.session_state.consol_holdings.columns and 'weighting' in st.session_state.consol_holdings.columns and 'Scheme Name' in st.session_state.consol_holdings.columns:
+        if 'Company' in st.session_state.consol_holdings.columns and 'Sector' in st.session_state.consol_holdings.columns and 'Percent Contribution' in st.session_state.consol_holdings.columns and 'Scheme Name' in st.session_state.consol_holdings.columns:
 
-            consol_holdings = st.session_state.consol_holdings.dropna(subset=['weighting'])
+            consol_holdings = st.session_state.consol_holdings.dropna(subset=['Percent Contribution'])
         
-            # fill None in sector column with holdingType
-            consol_holdings['sector'] =consol_holdings['sector'].fillna(consol_holdings['holdingType'])
-
+           
 
             # Process data to get the correlation matrix
             correlation_matrix = correlation(consol_holdings)
@@ -284,6 +282,14 @@ def nav_scheme_compare(portfolio):
 
 def nav_portfolio(portfolio):
     
+    st.markdown("<h2 style='text-align:center'>Consolidated Portfolio Summary</h2>", unsafe_allow_html=True)
+
+    st.markdown("This tab gives the consolidated portfolio summary. This will tell you the infomation regarding the detail sectorial allocations of the selected portfolio by value and types of the schemes. It shows the sectorial distribution by value of your portfolio. You can search for the allocation for a particular company by entering the company name in the search bar. The table displays the top 10 companies by value for your portfolio followed by top companies or assets in different sectors for yout portfolio.")
+
+    st.markdown("---")
+
+
+
     if not portfolio.empty:
 
                 # get top companies
@@ -306,7 +312,12 @@ def nav_about():
 
 
 def nav_scheme_distribution(portfolio):
-     
+    
+    st.markdown("<h2 style='text-align:center'>Scheme Distribution</h2>", unsafe_allow_html=True)
+
+    st.markdown("This tab gives the information on the sectorial distribution of a scheme and the holdings of the selected schemes. You can select from the dropdown menu the scheme for which you need the details.")
+    st.markdown("---")
+    
     # check which checkboxes are checked
     
     if not portfolio.empty:
