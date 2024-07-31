@@ -7,7 +7,7 @@
 With different mutual funds available it is difficult to design a strategy for the investments and in which funds to invest your money. A well-balanced portfolio has balanced exposure to different assets, and different companies of varied market caps and has investments across various sectors. Balancing the portfolio prevents the capital against ups and downs of the stock market. 
 
 
-This app is made to help the user analyze a potential mutual fund portfolio. It allows one to see how a particular mutual fund portfolio will look in terms of sectorial distribution, type of schemes and values. You will be able to compare different schemes against each other. Additionally, it will show the top companies for which the portfolio has exposure and their sectors.
+This app is made to help the user analyze a potential mutual fund portfolio. It allows one to see how a particular mutual fund portfolio will look in terms of sectorial distribution, type of schemes and values. You will be able to compare different schemes against each other. Additionally, it will show the top companies for which the portfolio has exposure and their sectors. Given all this information one can try to create a well-balanced diversified portfolio according to their needs.
 
 
 ### Quick start 
