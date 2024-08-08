@@ -307,6 +307,12 @@ def nav_about():
     intro_markdown = read_markdown_file("README.md")
     st.markdown(intro_markdown, unsafe_allow_html=True)
 
+    st.markdown("Here is a video of the app in use: ")
+        
+    video_file = "./images/MF-analysis-recording.mp4"
+
+    st.video(video_file)
+
 
 
 
