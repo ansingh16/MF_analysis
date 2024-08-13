@@ -34,7 +34,9 @@ styles_nav = {
              "width": "70%",
             "background-color": "teal",
             "float": "right",
-            "overflow": "hidden"
+            "overflow": "hidden",
+            "height": "1.875rem",
+
         },
         "span": {
             "border-radius": "0.5rem",
@@ -50,22 +52,25 @@ styles_nav = {
     }
 
 
-
-def main():
-
-        
-    GA_TRACKING_ID = st.secrets["google_analytics"]["tracking_id"]
-
-    html(f"""
-    <script async src="https://www.googletagmanager.com/gtag/js?id={GA_TRACKING_ID}"></script>
+def inject_google_analytics(tracking_id):
+    # Inject Google Analytics script into the head of the Streamlit app
+    st.markdown(f"""
+    <script async src="https://www.googletagmanager.com/gtag/js?id={tracking_id}"></script>
     <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){{dataLayer.push(arguments);}}
     gtag('js', new Date());
-    gtag('config', '{GA_TRACKING_ID}');
+    gtag('config', '{tracking_id}');
     </script>
-    """)
-    
+    """, unsafe_allow_html=True)
+
+
+def main():
+
+    # Google Analytics setup
+    GA_TRACKING_ID = st.secrets["google_analytics"]["tracking_id"]
+    inject_google_analytics(GA_TRACKING_ID)
+
     
     pages = ["About","Scheme Distribution", "Scheme Compare", "Portfolio Analysis"]
     
@@ -146,6 +151,7 @@ def main():
 
 
 
+
     # Call the appropriate function based on the selected page
     if navigation == 'About':
         nav_about()
@@ -156,7 +162,7 @@ def main():
     elif navigation == 'Portfolio Analysis':
         nav_portfolio(st.session_state.portfolio)
 
-        
+    
         
 
           
