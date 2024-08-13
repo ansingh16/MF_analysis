@@ -35,7 +35,7 @@ styles_nav = {
             "background-color": "teal",
             "float": "right",
             "overflow": "hidden",
-            "height": "1.275rem",
+            "height": "2.275rem",
             # "margin": "0.625rem 0.625rem 0.625rem 0",
             # "margin-top": "200px"
 
@@ -69,9 +69,9 @@ def inject_google_analytics(tracking_id):
 
 def main():
 
-    # Google Analytics setup
-    GA_TRACKING_ID = st.secrets["google_analytics"]["tracking_id"]
-    inject_google_analytics(GA_TRACKING_ID)
+    # # Google Analytics setup
+    # GA_TRACKING_ID = st.secrets["google_analytics"]["tracking_id"]
+    # inject_google_analytics(GA_TRACKING_ID)
 
     
     pages = ["About","Scheme Distribution", "Scheme Compare", "Portfolio Analysis"]
