@@ -5,7 +5,19 @@ from modules.data_processing import  check_ckbox
 from modules.data_processing import  nav_scheme_distribution, nav_portfolio, nav_about, nav_scheme_compare
 from modules.dashboard import search_fund, add_portfolio_file, get_consol_holdings
 
+from streamlit.components.v1 import html
 
+GA_TRACKING_ID = st.secrets["google_analytics"]["tracking_id"]
+
+html(f"""
+<script async src="https://www.googletagmanager.com/gtag/js?id={GA_TRACKING_ID}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){{dataLayer.push(arguments);}}
+  gtag('js', new Date());
+  gtag('config', '{GA_TRACKING_ID}');
+</script>
+""")
 
 st.set_page_config(initial_sidebar_state="expanded")
 
