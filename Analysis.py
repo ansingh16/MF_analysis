@@ -10,17 +10,6 @@ from modules.data_processing import  check_ckbox
 from modules.data_processing import  nav_scheme_distribution, nav_portfolio, nav_about, nav_scheme_compare
 from modules.dashboard import search_fund, add_portfolio_file, get_consol_holdings
 
-GA_TRACKING_ID = st.secrets["google_analytics"]["tracking_id"]
-
-html(f"""
-<script async src="https://www.googletagmanager.com/gtag/js?id={GA_TRACKING_ID}"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){{dataLayer.push(arguments);}}
-  gtag('js', new Date());
-  gtag('config', '{GA_TRACKING_ID}');
-</script>
-""")
 
  # Initialize session state variables if not already initialized
 
@@ -63,6 +52,19 @@ styles_nav = {
 
 
 def main():
+
+        
+    GA_TRACKING_ID = st.secrets["google_analytics"]["tracking_id"]
+
+    html(f"""
+    <script async src="https://www.googletagmanager.com/gtag/js?id={GA_TRACKING_ID}"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){{dataLayer.push(arguments);}}
+    gtag('js', new Date());
+    gtag('config', '{GA_TRACKING_ID}');
+    </script>
+    """)
     
     
     pages = ["About","Scheme Distribution", "Scheme Compare", "Portfolio Analysis"]
