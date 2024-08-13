@@ -1,9 +1,4 @@
 import streamlit as st
-import pandas as pd
-from streamlit_navigation_bar import st_navbar
-from modules.data_processing import  check_ckbox
-from modules.data_processing import  nav_scheme_distribution, nav_portfolio, nav_about, nav_scheme_compare
-from modules.dashboard import search_fund, add_portfolio_file, get_consol_holdings
 
 from streamlit.components.v1 import html
 
@@ -18,6 +13,14 @@ html(f"""
   gtag('config', '{GA_TRACKING_ID}');
 </script>
 """)
+
+import pandas as pd
+from streamlit_navigation_bar import st_navbar
+from modules.data_processing import  check_ckbox
+from modules.data_processing import  nav_scheme_distribution, nav_portfolio, nav_about, nav_scheme_compare
+from modules.dashboard import search_fund, add_portfolio_file, get_consol_holdings
+
+
 
 st.set_page_config(initial_sidebar_state="expanded")
 
