@@ -1,6 +1,14 @@
 import streamlit as st
 
+st.set_page_config(initial_sidebar_state="expanded")
+
+
+import pandas as pd
 from streamlit.components.v1 import html
+from streamlit_navigation_bar import st_navbar
+from modules.data_processing import  check_ckbox
+from modules.data_processing import  nav_scheme_distribution, nav_portfolio, nav_about, nav_scheme_compare
+from modules.dashboard import search_fund, add_portfolio_file, get_consol_holdings
 
 GA_TRACKING_ID = st.secrets["google_analytics"]["tracking_id"]
 
@@ -13,17 +21,6 @@ html(f"""
   gtag('config', '{GA_TRACKING_ID}');
 </script>
 """)
-
-import pandas as pd
-from streamlit_navigation_bar import st_navbar
-from modules.data_processing import  check_ckbox
-from modules.data_processing import  nav_scheme_distribution, nav_portfolio, nav_about, nav_scheme_compare
-from modules.dashboard import search_fund, add_portfolio_file, get_consol_holdings
-
-
-
-st.set_page_config(initial_sidebar_state="expanded")
-
 
  # Initialize session state variables if not already initialized
 
