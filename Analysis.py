@@ -35,7 +35,9 @@ styles_nav = {
             "background-color": "teal",
             "float": "right",
             "overflow": "hidden",
-            "height": "1.875rem",
+            "height": "1.275rem",
+            # "margin": "0.625rem 0.625rem 0.625rem 0",
+            # "margin-top": "200px"
 
         },
         "span": {
