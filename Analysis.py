@@ -31,14 +31,8 @@ if 'top_companies' not in st.session_state:
 
 styles_nav = {
         "nav": {
-             "width": "40%",
             "background-color": "teal",
-            "float": "right",
-            "overflow": "hidden",
-            "height": "2.275rem",
-            # "margin": "0.625rem 0.625rem 0.625rem 0",
-            # "margin-top": "200px"
-
+            "width": "100%",
         },
         "span": {
             "border-radius": "0.5rem",
@@ -52,6 +46,7 @@ styles_nav = {
             "background-color": "rgba(255, 255, 255, 0.35)",
         }
     }
+
 
 
 def inject_google_analytics(tracking_id):
@@ -147,6 +142,21 @@ def main():
                     # set session state for consol_holdings
                     st.session_state["consol_holdings"] = consol_holdings
 
+
+
+    # Custom CSS to create a 2-inch spacer
+    st.markdown(
+        """
+        <style>
+        .spacer {
+            height: 1.95rem;  /* Create a 2-inch space */
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown('<div class="spacer"></div>', unsafe_allow_html=True)
 
     # Render the navigation bar
     navigation = st_navbar(pages, styles=styles_nav,selected='About')
