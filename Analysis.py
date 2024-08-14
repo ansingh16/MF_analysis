@@ -31,7 +31,7 @@ if 'top_companies' not in st.session_state:
 
 styles_nav = {
         "nav": {
-             "width": "70%",
+             "width": "40%",
             "background-color": "teal",
             "float": "right",
             "overflow": "hidden",
