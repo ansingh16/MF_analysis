@@ -313,6 +313,10 @@ def nav_about():
 
     st.video(video_file)
 
+    st.markdown("""<div style="background-color:#444; color:white; padding:10px; border-radius:5px; margin-bottom:10px; font-weight:bold;">
+    ⚠️ Disclaimer: The content and information provided on this web application are for informational and educational purposes only. They do not constitute financial advice, investment recommendations, or an offer to buy or sell any financial instruments. Users are encouraged to conduct their own research and consult with a qualified financial advisor before making any financial decisions. The creators of this web application are not responsible for any financial losses or damages that may arise from the use of the information provided.
+    </div>
+    """,unsafe_allow_html=True)
 
 
 

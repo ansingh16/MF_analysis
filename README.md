@@ -2,7 +2,8 @@
 
 <p style='font-size: 18px;'>Welcome to Mutual Fund Analyzer!</p> 
 
-**Note:** This app uses data from the morningstar platform [here](https://www.morningstar.com/) the data can only be used for personal use. This tool is only available for personal use and should not be used for commercial use that may breach the terms and conditions of the platform concerned.
+⚠️ **Note:** This app uses data from the Morningstar platform [here](https://www.morningstar.com/). The data can only be used for personal use. This tool is only available for personal use and should not be used for commercial purposes that may breach the terms and conditions of the platform concerned.
+
 
 With different mutual funds available it is difficult to design a strategy for the investments and in which funds to invest your money. A well-balanced portfolio has balanced exposure to different assets, and different companies of varied market caps and has investments across various sectors. Balancing the portfolio prevents the capital against ups and downs of the stock market. 
 

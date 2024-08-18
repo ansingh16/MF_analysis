@@ -31,9 +31,17 @@ if 'top_companies' not in st.session_state:
 
 styles_nav = {
         "nav": {
-            "background-color": "teal",
-            "width": "100%",
-        },
+        "width": "100%",                   # Full width of the container
+        "background-color": "teal",        # Background color for the navigation bar
+        "display": "flex",                 # Enable flexbox layout
+        "justify-content": "center",       # Center the navigation items
+        "overflow": "hidden",              # Prevent overflow issues
+        "position": "relative",            # Allows better control of positioning
+        "left": "0",                       # Aligns the navigation bar to the start
+        "right": "0",                      # Aligns the navigation bar to the end
+        "margin": "0 auto",                # Center the navbar in its container
+        "padding-left": "150px",            # Space between the sidebar and navigation items
+    },
         "span": {
             "border-radius": "0.5rem",
             "padding": "0.4375rem 0.625rem",
@@ -49,24 +57,7 @@ styles_nav = {
 
 
 
-def inject_google_analytics(tracking_id):
-    # Inject Google Analytics script into the head of the Streamlit app
-    st.markdown(f"""
-    <script async src="https://www.googletagmanager.com/gtag/js?id={tracking_id}"></script>
-    <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){{dataLayer.push(arguments);}}
-    gtag('js', new Date());
-    gtag('config', '{tracking_id}');
-    </script>
-    """, unsafe_allow_html=True)
-
-
 def main():
-
-    # # Google Analytics setup
-    # GA_TRACKING_ID = st.secrets["google_analytics"]["tracking_id"]
-    # inject_google_analytics(GA_TRACKING_ID)
 
     
     pages = ["About","Scheme Distribution", "Scheme Compare", "Portfolio Analysis"]
@@ -77,6 +68,7 @@ def main():
 
         # set App Name
         st.markdown("<h1 style='text-align: center;'>Mutual Fund Analyzer</h1>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center;'>By Ankit Singh</h3>", unsafe_allow_html=True)
         #add logo at the center
         
         left_co, cent_co,last_co = st.columns(3)
